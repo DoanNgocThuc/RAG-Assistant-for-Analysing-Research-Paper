@@ -3,11 +3,29 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 from app.rag.pipeline import process_question, ensure_index_for_pdf
 from app.pdf.extract import parse_pdf
+import requests
 
 router = APIRouter()
 
 UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+OLLAMA_API_URL = "http://localhost:11434/api/generate"
+
+@router.get("/test-ollama")
+async def test_ollama():
+    try:
+        payload = {
+            "model": "mistral",
+            "prompt": "Say hello from the backend!",
+            "stream": False
+        }
+        r = requests.post(OLLAMA_API_URL, json=payload)
+        r.raise_for_status()
+        data = r.json()
+        return {"reply": data.get("response", "").strip()}
+    except Exception as e:
+        return {"error": str(e)}
 
 @router.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
