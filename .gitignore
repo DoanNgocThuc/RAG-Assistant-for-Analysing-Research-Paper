@@ -12,5 +12,5 @@ frontend/node_modules/
 *.env
 
 # Ignore uploaded files
-backend/app/uploads/
-backend/app/embeddings/
+backend/uploads/
+backend/embeddings/
