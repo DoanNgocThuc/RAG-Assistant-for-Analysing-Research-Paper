@@ -10,3 +10,7 @@ frontend/node_modules/
 
 # Ignore environment files
 *.env
+
+# Ignore uploaded files
+backend/app/uploads/
+backend/app/embeddings/
