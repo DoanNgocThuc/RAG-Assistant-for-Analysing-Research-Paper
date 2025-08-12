@@ -11,7 +11,7 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 OLLAMA_EMBED_ENDPOINT = f"{OLLAMA_HOST}/api/embeddings"
 OLLAMA_GEN_ENDPOINT = f"{OLLAMA_HOST}/api/generate"
 EMBED_MODEL_NAME = "nomic-embed-text"   # ensure you pulled this: ollama pull nomic-embed-text
-LLM_MODEL_NAME = "mistral"              # ensure you pulled this: ollama pull mistral
+LLM_MODEL_NAME = "llama3.2"              # ensure you pulled this: ollama pull llama3.2
 
 EMBEDDINGS_DIR = os.path.join(os.getcwd(), "embeddings")
 os.makedirs(EMBEDDINGS_DIR, exist_ok=True)
@@ -22,6 +22,7 @@ def chunk_text(text: str, max_chars: int = 2000, overlap: int = 200):
     Chunk text by characters (naive) but with overlap.
     We use characters because tokenizers differ per model; this is simple and safe for MVP.
     """
+    print("Chunking text...")
     if not text:
         return []
     chunks = []
@@ -40,6 +41,7 @@ def embed_with_ollama(texts: List[str]) -> np.ndarray:
     Query Ollama embeddings endpoint with a list of texts and return array shape (n, dim) float32.
     Uses the /api/embeddings endpoint with payload: {"model": EMBED_MODEL_NAME, "input": texts}
     """
+    print("Embedding text with Ollama...")
     if not isinstance(texts, list):
         texts = [texts]
 
@@ -79,6 +81,7 @@ def generate_with_ollama(system_prompt: str, user_prompt: str, max_tokens: int =
     Use Ollama generation endpoint to produce text.
     Uses /api/generate with model and prompt, returns generated text string.
     """
+    print("Generating text with Ollama...")
     payload = {
         "model": LLM_MODEL_NAME,
         "prompt": f"{system_prompt}\n\n{user_prompt}",
@@ -88,34 +91,40 @@ def generate_with_ollama(system_prompt: str, user_prompt: str, max_tokens: int =
     }
     try:
         r = requests.post(OLLAMA_GEN_ENDPOINT, json=payload, timeout=120)
-        r.raise_for_status()
-    except Exception as e:
-        raise RuntimeError(f"Ollama generate request failed: {e}")
+        r.raise_for_status()  # Raises HTTPError for bad status codes (e.g., 4xx, 5xx)
+    except requests.exceptions.ConnectionError as e:
+        raise RuntimeError(f"Failed to connect to Ollama server at {OLLAMA_GEN_ENDPOINT}: {e}")
+    except requests.exceptions.Timeout as e:
+        raise RuntimeError(f"Ollama request timed out after 120 seconds: {e}")
+    except requests.exceptions.HTTPError as e:
+        raise RuntimeError(f"Ollama HTTP error: {e} - Response: {r.text}")
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"Ollama request failed: {e}")
 
-    data = r.json()
-    # Ollama responses may include different shapes; we try common keys
-    # - data.get("response")
-    # - data.get("text")
-    # - data.get("outputs")[0]["content"]
+    try:
+        data = r.json()
+    except ValueError as e:
+        raise RuntimeError(f"Failed to parse Ollama JSON response: {e} - Response: {r.text}")
+
+    # Log the raw response for debugging
+    print(f"Ollama response: {data}")
+
+    # Handle common response formats
     if isinstance(data, dict):
         if "response" in data and isinstance(data["response"], str):
             return data["response"].strip()
         if "text" in data and isinstance(data["text"], str):
             return data["text"].strip()
-        # check outputs list
         if "outputs" in data and isinstance(data["outputs"], list) and len(data["outputs"]) > 0:
             out0 = data["outputs"][0]
             if isinstance(out0, dict):
-                # preference for 'content' string
                 if "content" in out0 and isinstance(out0["content"], str):
                     return out0["content"].strip()
-                # some endpoints return message-like structure
                 if "message" in out0 and isinstance(out0["message"], dict):
                     msg = out0["message"]
                     if "content" in msg and isinstance(msg["content"], str):
                         return msg["content"].strip()
-    # fallback: return str(data)
-    return str(data)
+    raise RuntimeError(f"Unexpected Ollama response format: {data}")
 
 # --- Indexing & retrieval (FAISS) ----------------------------------------
 def ensure_index_for_pdf(pdf_path: str, pages: List[dict] = None):
@@ -124,6 +133,7 @@ def ensure_index_for_pdf(pdf_path: str, pages: List[dict] = None):
     - pages: optional pre-parsed page dicts (from parse_pdf)
     - stores <filename>.faiss and <filename>.pkl under EMBEDDINGS_DIR
     """
+    print("Ensuring FAISS index for PDF...")
     key = os.path.basename(pdf_path)
     idx_path = os.path.join(EMBEDDINGS_DIR, f"{key}.faiss")
     meta_path = os.path.join(EMBEDDINGS_DIR, f"{key}.pkl")
@@ -169,6 +179,7 @@ def ensure_index_for_pdf(pdf_path: str, pages: List[dict] = None):
     return idx_path
 
 def _load_index(pdf_path: str):
+    print("Loading FAISS index for PDF...")
     key = os.path.basename(pdf_path)
     idx_path = os.path.join(EMBEDDINGS_DIR, f"{key}.faiss")
     meta_path = os.path.join(EMBEDDINGS_DIR, f"{key}.pkl")
@@ -183,6 +194,7 @@ def retrieve_top_k(question: str, pdf_path: str, k: int = 3):
     """
     Return top-k retrieved chunks (text + metadata) for the question.
     """
+    print("Retrieving top-k chunks...")
     index, meta = _load_index(pdf_path)
     q_emb = embed_with_ollama([question])  # shape (1, dim)
     # faiss expects float32
@@ -198,6 +210,7 @@ def retrieve_top_k(question: str, pdf_path: str, k: int = 3):
 
 # --- System prompt builder ------------------------------------------------
 def _build_system_prompt(mode: str):
+    print("Building system prompt...")
     if mode.lower() == "novice":
         return (
             "You are an assistant that explains scientific papers to a novice. "
@@ -222,12 +235,12 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     Returns: (answer_text, sources_list)
       - sources_list: list of {"page": n, "snippet": "..."}
     """
+    print("Processing question...")
     # retrieve
     contexts = retrieve_top_k(question, pdf_path, k=k)
 
     # prepare system & user prompts
     system_prompt = _build_system_prompt(mode)
-    # prepare concise snippets for LLM with page refs
     context_blocks = []
     sources = []
     for c in contexts:
@@ -246,14 +259,14 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     try:
         answer_text = generate_with_ollama(system_prompt, user_prompt, max_tokens=800)
     except Exception as e:
-        # On failure, return concatenated context as fallback with an error prefix
-        fallback = "[OLLAMA_GENERATION_FAILED] Fallback: concatenating contexts.\n\n" + "\n\n".join(context_blocks)
-        return fallback, sources
+        raise RuntimeError(f"Generation failed: {e}")
+        print(f"Error during generation: {e}")
 
     return answer_text, sources
 
 # Optional utility: get full page content for UI 'Show context'
 def get_page_text(pdf_path: str, page_number: int):
+    print("Getting full page text...")
     from app.pdf.extract import parse_pdf
     pages = parse_pdf(pdf_path)
     for p in pages:
