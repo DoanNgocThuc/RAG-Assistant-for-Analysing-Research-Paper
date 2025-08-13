@@ -1,17 +1,43 @@
-import fitz  # pymupdf
+import fitz  # PyMuPDF
 import re
 
-# Very small PDF parser that returns text per page and detects LaTeX-like formulas
-
 def parse_pdf(path: str):
-    doc = fitz.open(path)
+    try:
+        doc = fitz.open(path)
+    except Exception as e:
+        raise RuntimeError(f"Could not open PDF: {e}")
+
     pages = []
-    for i in range(len(doc)):
-        page = doc[i]
-        text = page.get_text("text")
-        # simple latex formula capture: $...$ or $$...$$ or \[ ... \]
-        formulas = re.findall(r"\$\$(.+?)\$\$|\$(.+?)\$|\\\[(.+?)\\\]", text, flags=re.S)
-        # flatten formula tuples
-        formulas = [next((g for g in t if g), "") for t in formulas]
-        pages.append({"page": i + 1, "text": text, "formulas": formulas})
+
+    # Regex for LaTeX-like formulas (ignores escaped \$)
+    formula_pattern = re.compile(
+        r"(?<!\\)\$\$(.+?)(?<!\\)\$\$"  # $$...$$
+        r"|(?<!\\)\$(.+?)(?<!\\)\$"     # $...$
+        r"|\\\[(.+?)\\\]",              # \[...\]
+        re.S
+    )
+
+    for i, page in enumerate(doc):
+        # Use "blocks" mode for better text fidelity
+        blocks = page.get_text("blocks")
+
+        # Sort blocks by vertical, then horizontal position
+        blocks = sorted(blocks, key=lambda b: (round(b[1], 1), round(b[0], 1)))
+
+        # Join block text with proper line breaks
+        text = "\n".join(b[4] for b in blocks if b[4].strip())
+
+        # Extract formulas
+        formulas = formula_pattern.findall(text)
+
+        # Flatten tuple results (filter out empty matches)
+        formulas = [next((g for g in t if g), None) for t in formulas]
+        formulas = [f for f in formulas if f]  # remove None/empty
+
+        pages.append({
+            "page": i + 1,
+            "text": text,
+            "formulas": formulas
+        })
+
     return pages
