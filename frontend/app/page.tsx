@@ -37,20 +37,19 @@ export default function ResearchPaperChat() {
   const [inputMessage, setInputMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { theme, setTheme } = useTheme()
-  // Add ref for the messages container to handle auto-scroll
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const activeChat = chatSessions.find(session => session.id === activeChatId)
   const messages = activeChat?.messages || []
 
-  // Auto-scroll to the latest message when messages change
+  // Auto-scroll to the latest message
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
   }, [messages])
 
-  // Load chat sessions from localStorage on mount
+  // Load chat sessions from localStorage
   useEffect(() => {
     const savedSessions = localStorage.getItem('chatSessions')
     if (savedSessions) {
@@ -70,7 +69,7 @@ export default function ResearchPaperChat() {
     }
   }, [])
 
-  // Save chat sessions to localStorage whenever they change
+  // Save chat sessions to localStorage
   useEffect(() => {
     if (chatSessions.length > 0) {
       localStorage.setItem('chatSessions', JSON.stringify(chatSessions))
@@ -247,8 +246,8 @@ export default function ResearchPaperChat() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
+      <header className="border-b bg-card h-16">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold">Research Paper Assistant</h1>
@@ -379,8 +378,8 @@ export default function ResearchPaperChat() {
       </header>
 
       <div className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-140px)]">
-          <Card className="flex flex-col">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-h-[calc(100vh-6rem)]">
+          <Card className="flex flex-col max-h-full">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
@@ -392,8 +391,8 @@ export default function ResearchPaperChat() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1">
-              <ScrollArea className="h-full">
+            <CardContent className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full pr-4">
                 {pdfFile ? (
                   <div className="space-y-4">
                     <div className="p-4 bg-muted rounded-lg">
@@ -479,8 +478,8 @@ export default function ResearchPaperChat() {
             </CardContent>
           </Card>
 
-          <Card className="flex flex-col">
-            <CardHeader>
+          <Card className="flex flex-col max-h-[calc(100vh-6rem)]">
+            <CardHeader className="h-16">
               <CardTitle className="flex items-center justify-between">
                 <span>AI Assistant</span>
                 {activeChat && (
@@ -490,10 +489,9 @@ export default function ResearchPaperChat() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
-              {/* Messages: Constrain height and make scrollable */}
-              <ScrollArea className="flex-1 h-0">
-                <div className="space-y-4 p-4">
+            <CardContent className="flex-1 flex flex-col overflow-hidden">
+              <ScrollArea className="h-[calc(100%-4rem)] pr-4">
+                <div className="space-y-4 p-2">
                   {messages.length === 0 ? (
                     <div className="text-center py-8">
                       <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -511,20 +509,20 @@ export default function ResearchPaperChat() {
                         }`}
                       >
                         <div
-                          className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                          className={`max-w-[80%] rounded-lg px-4 py-2 break-words ${
                             message.sender === "user"
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted"
                           }`}
                         >
-                          <p className="text-sm">{message.content}</p>
+                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                           {message.sources && message.sources.length > 0 && (
                             <div className="mt-2">
                               <p className="text-xs font-semibold">Sources:</p>
                               {message.sources.map((source, index) => (
                                 <p
                                   key={index}
-                                  className="text-xs text-muted-foreground cursor-pointer hover:underline"
+                                  className="text-xs text-muted-foreground cursor-pointer hover:underline whitespace-pre-wrap"
                                   onClick={() => fetchContext(source.page).then(context => {
                                     if (context) {
                                       alert(`Page ${source.page}: ${context.text.substring(0, 500)}...`)
@@ -543,14 +541,13 @@ export default function ResearchPaperChat() {
                       </div>
                     ))
                   )}
-                  {/* Dummy div to scroll to */}
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
 
-              <Separator className="mb-4" />
+              <Separator className="my-4" />
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 p-2">
                 <Input
                   placeholder={
                     activeChat 
