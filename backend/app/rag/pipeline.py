@@ -201,11 +201,15 @@ def retrieve_top_k(question: str, pdf_path: str, k: int = 3):
     if q_emb.dtype != np.float32:
         q_emb = q_emb.astype("float32")
     D, I = index.search(q_emb, k)
+    seen_pages = set()
     results = []
     for idx in I[0]:
         text = meta["texts"][idx]
         md = meta["metadatas"][idx]
-        results.append({"text": text, "metadata": md})
+        page = md["page"]
+        if page not in seen_pages:  # only take the first chunk from each page
+            seen_pages.add(page)
+            results.append({"text": text, "metadata": md})
     return results
 
 # --- System prompt builder ------------------------------------------------
@@ -216,6 +220,7 @@ def _build_system_prompt(mode: str):
             "You are an assistant that explains scientific papers to a novice. "
             "Give a clear, concise answer with high-level intuition and point to the source pages. "
             "Keep technical jargon minimal and define any introduced terms."
+            "Summarize the content with structure (Problem, Method, Key Equation, Result and Limits)"
         )
     elif mode.lower() == "reviewer":
         return (

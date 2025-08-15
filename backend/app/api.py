@@ -59,10 +59,10 @@ async def upload_pdf(file: UploadFile = File(...)):
 
 @router.get("/ask")
 async def ask_question(
-    question: str = Form(...),
-    mode: str = Form("Novice"),
-    pdf_filename: str = Form(...),
-    k: int = Form(3),
+    question: str,
+    pdf_filename: str,
+    mode: str = "Novice",
+    k: int = 3,
 ):
     pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
     if not os.path.exists(pdf_path):

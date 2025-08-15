@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,6 +16,7 @@ interface Message {
   content: string
   sender: "user" | "bot"
   timestamp: Date
+  sources?: { page: number; snippet: string }[]
 }
 
 interface ChatSession {
@@ -27,17 +28,27 @@ interface ChatSession {
   lastActive: Date
 }
 
+const API_BASE_URL = "http://localhost:8000"
+
 export default function ResearchPaperChat() {
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([])
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [inputMessage, setInputMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const { theme, setTheme } = useTheme()
-  
+  // Add ref for the messages container to handle auto-scroll
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Get current active chat session
   const activeChat = chatSessions.find(session => session.id === activeChatId)
   const messages = activeChat?.messages || []
+
+  // Auto-scroll to the latest message when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [messages])
 
   // Load chat sessions from localStorage on mount
   useEffect(() => {
@@ -66,44 +77,60 @@ export default function ResearchPaperChat() {
     }
   }, [chatSessions])
 
-  const createNewChatSession = (file: File): string => {
+  const createNewChatSession = (file: File, fileName: string): string => {
     const newSessionId = Date.now().toString()
     const newSession: ChatSession = {
       id: newSessionId,
-      fileName: file.name,
+      fileName: fileName,
       fileSize: file.size,
       createdAt: new Date(),
       lastActive: new Date(),
       messages: [
         {
           id: "1",
-          content: `Hello! I'm ready to help you analyze "${file.name}". You can now ask me questions about this research paper.`,
+          content: `Hello! I'm ready to help you analyze "${fileName}". You can now ask me questions about this research paper.`,
           sender: "bot",
           timestamp: new Date()
         }
       ]
     }
-
     setChatSessions(prev => [newSession, ...prev])
     return newSessionId
   }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file && file.type === "application/pdf") {
-      setPdfFile(file)
-      
-      // Check if we already have a session for this file
-      const existingSession = chatSessions.find(session => 
-        session.fileName === file.name && session.fileSize === file.size
-      )
+    if (!file || file.type !== "application/pdf") return
 
-      if (existingSession) {
-        setActiveChatId(existingSession.id)
-      } else {
-        const newSessionId = createNewChatSession(file)
-        setActiveChatId(newSessionId)
+    setIsLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || "Failed to upload PDF")
       }
+      const data = await response.json()
+      if (data.message === "uploaded") {
+        setPdfFile(file)
+        const existingSession = chatSessions.find(
+          session => session.fileName === file.name && session.fileSize === file.size
+        )
+        if (existingSession) {
+          setActiveChatId(existingSession.id)
+        } else {
+          const newSessionId = createNewChatSession(file, data.filename)
+          setActiveChatId(newSessionId)
+        }
+      }
+    } catch (error: any) {
+      alert(`Error uploading PDF: ${error.message}`)
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -115,33 +142,54 @@ export default function ResearchPaperChat() {
     ))
   }
 
-  const handleSendMessage = () => {
-    if (!inputMessage.trim() || !activeChatId) return
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || !activeChatId || !activeChat) return
 
+    setIsLoading(true)
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputMessage,
       sender: "user",
       timestamp: new Date()
     }
-
     const newMessages = [...messages, userMessage]
     updateActiveChat(newMessages)
 
-    // Simulate bot response
-    setTimeout(() => {
+    try {
+      const params = new URLSearchParams({
+        question: inputMessage,
+        mode: "Novice",
+        pdf_filename: activeChat.fileName,
+        k: "3",
+      })
+      const response = await fetch(`${API_BASE_URL}/ask?${params}`, {
+        method: "GET",
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `HTTP error ${response.status}`)
+      }
+      const data = await response.json()
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: activeChat 
-          ? `I understand you're asking about "${inputMessage}". Based on the uploaded paper "${activeChat.fileName}", I can help analyze the content. This is a simulated response - in a real implementation, I would process the PDF content to provide specific insights.`
-          : "Please upload a PDF file first so I can help you analyze the research paper.",
+        content: data.answer,
         sender: "bot",
-        timestamp: new Date()
+        timestamp: new Date(),
+        sources: data.sources,
       }
       updateActiveChat([...newMessages, botMessage])
-    }, 1000)
-
-    setInputMessage("")
+    } catch (error: any) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: `Error: ${error.message || 'An unexpected error occurred'}`,
+        sender: "bot",
+        timestamp: new Date(),
+      }
+      updateActiveChat([...newMessages, errorMessage])
+    } finally {
+      setIsLoading(false)
+      setInputMessage("")
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -155,7 +203,6 @@ export default function ResearchPaperChat() {
     setActiveChatId(sessionId)
     const session = chatSessions.find(s => s.id === sessionId)
     if (session) {
-      // Create a mock file object for display purposes
       const mockFile = new File([""], session.fileName, { type: "application/pdf" })
       Object.defineProperty(mockFile, 'size', { value: session.fileSize })
       setPdfFile(mockFile)
@@ -179,6 +226,24 @@ export default function ResearchPaperChat() {
     document.getElementById("pdf-upload")?.click()
   }
 
+  const fetchContext = async (page: number) => {
+    if (!activeChat) return
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/context?pdf_filename=${encodeURIComponent(activeChat.fileName)}&page=${page}`
+      )
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || "Failed to fetch context")
+      }
+      const data = await response.json()
+      return data.page
+    } catch (error: any) {
+      alert(`Error fetching context: ${error.message}`)
+      return null
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -194,11 +259,13 @@ export default function ResearchPaperChat() {
                   onChange={handleFileUpload}
                   className="hidden"
                   id="pdf-upload"
+                  disabled={isLoading}
                 />
                 <Button
                   onClick={() => document.getElementById("pdf-upload")?.click()}
                   variant="outline"
                   className="gap-2"
+                  disabled={isLoading}
                 >
                   <Upload className="h-4 w-4" />
                   Import PDF
@@ -211,10 +278,9 @@ export default function ResearchPaperChat() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* Chat History Sheet */}
               <Sheet>
                 <SheetTrigger asChild>
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="outline" className="gap-2" disabled={isLoading}>
                     <History className="h-4 w-4" />
                     Chat History
                     {chatSessions.length > 0 && (
@@ -236,7 +302,7 @@ export default function ResearchPaperChat() {
                       <p className="text-sm text-muted-foreground">
                         {chatSessions.length} conversation{chatSessions.length !== 1 ? 's' : ''}
                       </p>
-                      <Button onClick={createNewChat} size="sm" className="gap-2">
+                      <Button onClick={createNewChat} size="sm" className="gap-2" disabled={isLoading}>
                         <Plus className="h-4 w-4" />
                         New Chat
                       </Button>
@@ -283,6 +349,7 @@ export default function ResearchPaperChat() {
                                       deleteChatSession(session.id)
                                     }}
                                     className="text-muted-foreground hover:text-destructive"
+                                    disabled={isLoading}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -296,11 +363,11 @@ export default function ResearchPaperChat() {
                   </div>
                 </SheetContent>
               </Sheet>
-
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                disabled={isLoading}
               >
                 <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                 <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
@@ -311,10 +378,8 @@ export default function ResearchPaperChat() {
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-140px)]">
-          {/* Left Column - Research Paper Viewer */}
           <Card className="flex flex-col">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -366,6 +431,7 @@ export default function ResearchPaperChat() {
                         <Button
                           onClick={() => document.getElementById("pdf-upload")?.click()}
                           className="gap-2"
+                          disabled={isLoading}
                         >
                           <Upload className="h-4 w-4" />
                           Choose PDF File
@@ -373,7 +439,7 @@ export default function ResearchPaperChat() {
                         {chatSessions.length > 0 && (
                           <Sheet>
                             <SheetTrigger asChild>
-                              <Button variant="outline" className="gap-2">
+                              <Button variant="outline" className="gap-2" disabled={isLoading}>
                                 <History className="h-4 w-4" />
                                 View History
                               </Button>
@@ -413,7 +479,6 @@ export default function ResearchPaperChat() {
             </CardContent>
           </Card>
 
-          {/* Right Column - Chatbot */}
           <Card className="flex flex-col">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -426,9 +491,9 @@ export default function ResearchPaperChat() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
-              {/* Messages */}
-              <ScrollArea className="flex-1 mb-4">
-                <div className="space-y-4">
+              {/* Messages: Constrain height and make scrollable */}
+              <ScrollArea className="flex-1 h-0">
+                <div className="space-y-4 p-4">
                   {messages.length === 0 ? (
                     <div className="text-center py-8">
                       <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -453,6 +518,24 @@ export default function ResearchPaperChat() {
                           }`}
                         >
                           <p className="text-sm">{message.content}</p>
+                          {message.sources && message.sources.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs font-semibold">Sources:</p>
+                              {message.sources.map((source, index) => (
+                                <p
+                                  key={index}
+                                  className="text-xs text-muted-foreground cursor-pointer hover:underline"
+                                  onClick={() => fetchContext(source.page).then(context => {
+                                    if (context) {
+                                      alert(`Page ${source.page}: ${context.text.substring(0, 500)}...`)
+                                    }
+                                  })}
+                                >
+                                  Page {source.page}: {source.snippet.substring(0, 100)}...
+                                </p>
+                              ))}
+                            </div>
+                          )}
                           <p className="text-xs opacity-70 mt-1">
                             {message.timestamp.toLocaleTimeString()}
                           </p>
@@ -460,12 +543,13 @@ export default function ResearchPaperChat() {
                       </div>
                     ))
                   )}
+                  {/* Dummy div to scroll to */}
+                  <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
 
               <Separator className="mb-4" />
 
-              {/* Input */}
               <div className="flex gap-2">
                 <Input
                   placeholder={
@@ -477,12 +561,12 @@ export default function ResearchPaperChat() {
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   className="flex-1"
-                  disabled={!activeChat}
+                  disabled={!activeChat || isLoading}
                 />
                 <Button 
                   onClick={handleSendMessage} 
                   size="icon"
-                  disabled={!activeChat || !inputMessage.trim()}
+                  disabled={!activeChat || !inputMessage.trim() || isLoading}
                 >
                   <Send className="h-4 w-4" />
                 </Button>
