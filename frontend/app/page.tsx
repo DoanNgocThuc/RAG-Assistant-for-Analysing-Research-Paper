@@ -1,3 +1,4 @@
+// page.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -20,7 +21,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; // Import Select components from shadcn/ui
+} from "@/components/ui/select";
 import {
   Upload,
   Moon,
@@ -59,7 +60,7 @@ export default function ResearchPaperChat() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">("Novice"); // New state for mode
+  const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">("Novice");
   const { theme, setTheme } = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +92,8 @@ export default function ResearchPaperChat() {
       setChatSessions(parsed);
       if (parsed.length > 0) {
         setActiveChatId(parsed[0].id);
+        // Fetch PDF for the first session
+        switchToChat(parsed[0].id);
       }
     }
   }, []);
@@ -146,13 +149,13 @@ export default function ResearchPaperChat() {
       if (data.message === "uploaded") {
         setPdfFile(file);
         console.log("PDF uploaded successfully:", file.name);
-        console.log("Pdf file:", pdfFile);
         const existingSession = chatSessions.find(
           (session) =>
             session.fileName === file.name && session.fileSize === file.size
         );
         if (existingSession) {
           setActiveChatId(existingSession.id);
+          switchToChat(existingSession.id); // Fetch PDF for existing session
         } else {
           const newSessionId = createNewChatSession(file, data.filename);
           setActiveChatId(newSessionId);
@@ -191,7 +194,7 @@ export default function ResearchPaperChat() {
     try {
       const params = new URLSearchParams({
         question: inputMessage,
-        mode: mode, // Use the selected mode
+        mode: mode,
         pdf_filename: activeChat.fileName,
         k: "3",
       });
@@ -232,15 +235,34 @@ export default function ResearchPaperChat() {
     }
   };
 
-  const switchToChat = (sessionId: string) => {
+  const switchToChat = async (sessionId: string) => {
     setActiveChatId(sessionId);
     const session = chatSessions.find((s) => s.id === sessionId);
     if (session) {
-      const mockFile = new File([""], session.fileName, {
-        type: "application/pdf",
-      });
-      Object.defineProperty(mockFile, "size", { value: session.fileSize });
-      setPdfFile(mockFile);
+      setIsLoading(true);
+      try {
+        // Fetch the PDF from the backend
+        const response = await fetch(
+          `${API_BASE_URL}/get_pdf/${encodeURIComponent(session.fileName)}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch PDF from server");
+        }
+        const blob = await response.blob();
+        const file = new File([blob], session.fileName, {
+          type: "application/pdf",
+        });
+        Object.defineProperty(file, "size", { value: session.fileSize });
+        setPdfFile(file);
+      } catch (error: any) {
+        console.error("Error fetching PDF:", error);
+        alert(`Error loading PDF: ${error.message}`);
+        setPdfFile(null);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setPdfFile(null);
     }
   };
 
@@ -311,7 +333,6 @@ export default function ResearchPaperChat() {
                   <Upload className="h-4 w-4" />
                   Import PDF
                 </Button>
-                <strong className="px-2">Mode:</strong>
                 <Select
                   value={mode}
                   onValueChange={(value: "Novice" | "Reviewer" | "Researcher") =>
