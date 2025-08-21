@@ -34,6 +34,8 @@ import {
   Plus,
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
+
 
 interface Message {
   id: string;
@@ -62,6 +64,7 @@ export default function ResearchPaperChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">("Novice");
   const { theme, setTheme } = useTheme();
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeChat = chatSessions.find(
@@ -92,7 +95,6 @@ export default function ResearchPaperChat() {
       setChatSessions(parsed);
       if (parsed.length > 0) {
         setActiveChatId(parsed[0].id);
-        // Fetch PDF for the first session
         switchToChat(parsed[0].id);
       }
     }
@@ -155,7 +157,7 @@ export default function ResearchPaperChat() {
         );
         if (existingSession) {
           setActiveChatId(existingSession.id);
-          switchToChat(existingSession.id); // Fetch PDF for existing session
+          switchToChat(existingSession.id);
         } else {
           const newSessionId = createNewChatSession(file, data.filename);
           setActiveChatId(newSessionId);
@@ -241,12 +243,12 @@ export default function ResearchPaperChat() {
     if (session) {
       setIsLoading(true);
       try {
-        // Fetch the PDF from the backend
         const response = await fetch(
           `${API_BASE_URL}/get_pdf/${encodeURIComponent(session.fileName)}`
         );
         if (!response.ok) {
-          throw new Error("Failed to fetch PDF from server");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `HTTP error ${response.status}`);
         }
         const blob = await response.blob();
         const file = new File([blob], session.fileName, {
@@ -256,7 +258,7 @@ export default function ResearchPaperChat() {
         setPdfFile(file);
       } catch (error: any) {
         console.error("Error fetching PDF:", error);
-        alert(`Error loading PDF: ${error.message}`);
+        alert(`Error loading PDF: ${error.message || "Unable to fetch PDF from server"}`);
         setPdfFile(null);
       } finally {
         setIsLoading(false);
@@ -266,7 +268,36 @@ export default function ResearchPaperChat() {
     }
   };
 
-  const deleteChatSession = (sessionId: string) => {
+  const deleteChatSession = async (sessionId: string) => {
+    const session = chatSessions.find((s) => s.id === sessionId);
+    if (session) {
+      setIsLoading(true);
+      try {
+        // Call backend to delete PDF and associated files
+        const response = await fetch(
+          `${API_BASE_URL}/delete_pdf/${encodeURIComponent(session.fileName)}`,
+          {
+            method: "DELETE",
+          }
+        );
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `HTTP error ${response.status}`);
+        }
+        const data = await response.json();
+        // Show toast notification (or fallback to alert)
+        toast?.(data.message);
+      } catch (error: any) {
+        console.error("Error deleting session:", error);
+        toast?.(
+          `Error Deleting Session: ${error.message || "Failed to delete session"}`
+        ) || alert(`Error deleting session: ${error.message || "Failed to delete session"}`);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    // Update chat sessions
     setChatSessions((prev) =>
       prev.filter((session) => session.id !== sessionId)
     );
@@ -511,16 +542,20 @@ export default function ResearchPaperChat() {
                       )}
                     </div>
                     <div className="aspect-[3/4] bg-muted rounded-lg flex items-center justify-center">
-                      <div className="text-center w-full h-full flex flex-col items-center justify-center">
-                        {pdfFile && (
+                      {isLoading ? (
+                        <div className="text-center">
+                          <p className="text-muted-foreground">Loading PDF...</p>
+                        </div>
+                      ) : (
+                        <div className="text-center w-full h-full flex flex-col items-center justify-center">
                           <iframe
                             src={URL.createObjectURL(pdfFile)}
                             title="PDF Preview"
                             width="100%"
                             height="100%"
                           />
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (

@@ -10,7 +10,9 @@ from pathlib import Path
 router = APIRouter()
 
 UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
+EMBEDDINGS_DIR = os.path.join(os.getcwd(), "embeddings")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(EMBEDDINGS_DIR, exist_ok=True)
 
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 
@@ -96,3 +98,51 @@ async def get_pdf(filename: str):
         raise HTTPException(status_code=404, detail="PDF not found on server")
     return FileResponse(pdf_path, media_type="application/pdf", filename=filename)
 
+@router.delete("/delete_pdf/{filename}")
+async def delete_pdf(filename: str):
+    # Sanitize filename to prevent path traversal
+    filename = Path(filename).name
+    pdf_path = os.path.join(UPLOAD_DIR, filename)
+    idx_path = os.path.join(EMBEDDINGS_DIR, f"{filename}.faiss")
+    meta_path = os.path.join(EMBEDDINGS_DIR, f"{filename}.pkl")
+
+    deleted = False
+    response = {"message": "Deletion completed", "details": []}
+
+    # Delete PDF file
+    if os.path.exists(pdf_path):
+        try:
+            os.remove(pdf_path)
+            response["details"].append(f"PDF file {filename} deleted")
+            deleted = True
+        except Exception as e:
+            response["details"].append(f"Failed to delete PDF file {filename}: {str(e)}")
+    else:
+        response["details"].append(f"PDF file {filename} not found")
+
+    # Delete FAISS index
+    if os.path.exists(idx_path):
+        try:
+            os.remove(idx_path)
+            response["details"].append(f"FAISS index for {filename} deleted")
+            deleted = True
+        except Exception as e:
+            response["details"].append(f"Failed to delete FAISS index for {filename}: {str(e)}")
+    else:
+        response["details"].append(f"FAISS index for {filename} not found")
+
+    # Delete metadata
+    if os.path.exists(meta_path):
+        try:
+            os.remove(meta_path)
+            response["details"].append(f"Metadata file for {filename} deleted")
+            deleted = True
+        except Exception as e:
+            response["details"].append(f"Failed to delete metadata file for {filename}: {str(e)}")
+    else:
+        response["details"].append(f"Metadata file for {filename} not found")
+
+    if not deleted:
+        response["message"] = "No files were deleted"
+    
+    return response
