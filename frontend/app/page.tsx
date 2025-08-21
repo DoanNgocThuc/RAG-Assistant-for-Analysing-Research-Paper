@@ -15,6 +15,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"; // Import Select components from shadcn/ui
+import {
   Upload,
   Moon,
   Sun,
@@ -52,6 +59,7 @@ export default function ResearchPaperChat() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">("Novice"); // New state for mode
   const { theme, setTheme } = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -183,7 +191,7 @@ export default function ResearchPaperChat() {
     try {
       const params = new URLSearchParams({
         question: inputMessage,
-        mode: "Novice",
+        mode: mode, // Use the selected mode
         pdf_filename: activeChat.fileName,
         k: "3",
       });
@@ -282,8 +290,6 @@ export default function ResearchPaperChat() {
       {/* Header Section */}
       <header className="border-b bg-card h-16">
         <div className="container mx-auto px-3 py-2">
-          {" "}
-          {/* Adjusted px-4 to px-3, py-3 to py-2 for tighter spacing */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold">Research Paper Assistant</h1>
@@ -305,6 +311,23 @@ export default function ResearchPaperChat() {
                   <Upload className="h-4 w-4" />
                   Import PDF
                 </Button>
+                <strong className="px-2">Mode:</strong>
+                <Select
+                  value={mode}
+                  onValueChange={(value: "Novice" | "Reviewer" | "Researcher") =>
+                    setMode(value)
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Select mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Novice">Novice</SelectItem>
+                    <SelectItem value="Reviewer">Reviewer</SelectItem>
+                    <SelectItem value="Researcher">Researcher</SelectItem>
+                  </SelectContent>
+                </Select>
                 {pdfFile && (
                   <span className="text-sm text-muted-foreground">
                     {pdfFile.name}
@@ -338,8 +361,6 @@ export default function ResearchPaperChat() {
                   </SheetHeader>
                   <div className="mt-6">
                     <div className="flex justify-between items-center mb-3">
-                      {" "}
-                      {/* Adjusted mb-4 to mb-3 */}
                       <p className="text-sm text-muted-foreground">
                         {chatSessions.length} conversation
                         {chatSessions.length !== 1 ? "s" : ""}
@@ -358,10 +379,7 @@ export default function ResearchPaperChat() {
                       <div className="space-y-3">
                         {chatSessions.length === 0 ? (
                           <div className="text-center py-6">
-                            {" "}
-                            {/* Adjusted py-8 to py-6 */}
-                            <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />{" "}
-                            {/* Adjusted mb-4 to mb-3 */}
+                            <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                             <p className="text-muted-foreground">
                               No chat history yet
                             </p>
@@ -381,16 +399,12 @@ export default function ResearchPaperChat() {
                               onClick={() => switchToChat(session.id)}
                             >
                               <CardContent className="p-3">
-                                {" "}
-                                {/* Adjusted p-4 to p-3 */}
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1 min-w-0">
                                     <h4 className="font-medium truncate mb-1">
                                       {session.fileName}
                                     </h4>
                                     <p className="text-sm text-muted-foreground mb-1">
-                                      {" "}
-                                      {/* Adjusted mb-2 to mb-1 */}
                                       {session.messages.length} message
                                       {session.messages.length !== 1 ? "s" : ""}
                                       {" • "}
@@ -443,8 +457,6 @@ export default function ResearchPaperChat() {
 
       {/* Main Content Section */}
       <div className="container mx-auto px-3 py-4">
-        {" "}
-        {/* Adjusted px-4 to px-3, py-6 to py-4 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-h-[calc(100vh-6rem)]">
           {/* PDF Card Section */}
           <Card className="flex flex-col max-h-full">
@@ -461,15 +473,9 @@ export default function ResearchPaperChat() {
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden">
               <ScrollArea className="h-full pr-3">
-                {" "}
-                {/* Adjusted pr-4 to pr-3 */}
                 {pdfFile ? (
                   <div className="space-y-3">
-                    {" "}
-                    {/* Adjusted space-y-4 to space-y-3 */}
                     <div className="p-3 bg-muted rounded-lg">
-                      {" "}
-                      {/* Adjusted p-4 to p-3 */}
                       <h3 className="font-semibold mb-2">
                         PDF Loaded: {pdfFile.name}
                       </h3>
@@ -485,15 +491,6 @@ export default function ResearchPaperChat() {
                     </div>
                     <div className="aspect-[3/4] bg-muted rounded-lg flex items-center justify-center">
                       <div className="text-center w-full h-full flex flex-col items-center justify-center">
-                        {/* <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-muted-foreground">
-                          PDF Preview would be displayed here
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          In a real implementation, you would integrate a PDF
-                          viewer library
-                        </p> */}
-
                         {pdfFile && (
                           <iframe
                             src={URL.createObjectURL(pdfFile)}
@@ -513,8 +510,6 @@ export default function ResearchPaperChat() {
                         No PDF Loaded
                       </h3>
                       <p className="text-muted-foreground mb-3">
-                        {" "}
-                        {/* Adjusted mb-4 to mb-3 */}
                         Upload a research paper to get started or select from
                         chat history
                       </p>
@@ -593,17 +588,10 @@ export default function ResearchPaperChat() {
             </CardHeader>
             <CardContent className="flex-1 flex flex-col overflow-hidden">
               <ScrollArea className="h-[calc(100%-4rem)] pr-3">
-                {" "}
-                {/* Adjusted pr-4 to pr-3 */}
                 <div className="space-y-3 p-2">
-                  {" "}
-                  {/* Adjusted space-y-4 to space-y-3, kept p-2 */}
                   {messages.length === 0 ? (
                     <div className="text-center py-6">
-                      {" "}
-                      {/* Adjusted py-8 to py-6 */}
-                      <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />{" "}
-                      {/* Adjusted mb-4 to mb-3 */}
+                      <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
                       <p className="text-muted-foreground">No active chat</p>
                       <p className="text-sm text-muted-foreground mt-1">
                         Upload a PDF or select from chat history to start
@@ -669,10 +657,8 @@ export default function ResearchPaperChat() {
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
-              <Separator className="my-3" /> {/* Adjusted my-4 to my-3 */}
+              <Separator className="my-3" />
               <div className="flex gap-2 p-1">
-                {" "}
-                {/* Adjusted p-2 to p-1 */}
                 <Input
                   placeholder={
                     activeChat
