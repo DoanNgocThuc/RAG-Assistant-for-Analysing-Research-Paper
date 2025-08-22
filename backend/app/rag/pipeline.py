@@ -5,6 +5,8 @@ from typing import List
 import requests
 import numpy as np
 import faiss
+import json
+from app.pdf.extract import parse_pdf
 
 # Local Ollama endpoints and models
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
@@ -278,3 +280,32 @@ def get_page_text(pdf_path: str, page_number: int):
         if p["page"] == page_number:
             return p
     return None
+
+
+def generate_eval_dataset_from_pdf(pdf_path, num_samples=5, output_dir="eval_outputs"):
+    """
+    Use the LLM to generate evaluation data: question, answer, and citation from the PDF content.
+    Save output to a folder.
+    """
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"{os.path.basename(pdf_path)}.eval.json")
+
+    pages = parse_pdf(pdf_path)
+    content = "\n".join([f"[page {p['page']}] {p['text'][:1000]}" for p in pages if p['text'].strip()])
+    system_prompt = "You are a scientific assistant. Generate an evaluation dataset for a document QA system."
+    user_prompt = f"""
+Based on the following content, generate {num_samples} pairs of question and concise answer. Each answer must cite the source (page number).
+Content:
+{content}
+Return the result in JSON format: 
+[{{"question": "...", "answer": "...", "source": "..."}}, ...]
+"""
+    result = generate_with_ollama(system_prompt, user_prompt)
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump({"pdf": os.path.basename(pdf_path), "eval_data": result}, f, ensure_ascii=False, indent=2)
+    print(f"Saved evaluation dataset to {output_file}")
+    return result
+
+# Example usage:
+# generate_eval_dataset_from_pdf("uploads/example.pdf", num_samples

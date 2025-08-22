@@ -4,6 +4,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse, FileResponse  
 from app.rag.pipeline import process_question, ensure_index_for_pdf
 from app.pdf.extract import parse_pdf
+from app.rag.pipeline import generate_eval_dataset_from_pdf
 import requests
 from pathlib import Path
 
@@ -74,6 +75,20 @@ async def ask_question(
     print("Trying to generate asked question...")
     answer, sources = process_question(question, mode, pdf_path, k=k)
     return JSONResponse({"answer": answer, "sources": sources})
+
+@router.post("/generate_eval")
+async def generate_eval_dataset_api(
+    pdf_filename: str = Form(...),
+    num_samples: int = Form(5),
+    output_dir: str = Form("eval_outputs"),
+):
+    pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=404, detail="PDF not found on server")
+
+    # Call the pipeline function to generate evaluation dataset
+    result = generate_eval_dataset_from_pdf(pdf_path, num_samples=num_samples, output_dir=output_dir)
+    return {"message": "Evaluation dataset generated successfully", "result": result}
 
 @router.get("/context")
 async def get_context(pdf_filename: str, page: int):
