@@ -36,7 +36,6 @@ import {
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 
-
 interface Message {
   id: string;
   content: string;
@@ -58,13 +57,17 @@ const API_BASE_URL = "http://localhost:8000";
 
 export default function ResearchPaperChat() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">("Novice");
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+  const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">(
+    "Novice"
+  );
   const { theme, setTheme } = useTheme();
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeChat = chatSessions.find(
@@ -107,6 +110,19 @@ export default function ResearchPaperChat() {
     }
   }, [chatSessions]);
 
+  // Create object URL for PDF file
+  useEffect(() => {
+    if (pdfFile) {
+      const url = URL.createObjectURL(pdfFile);
+      setPdfUrl(url);
+
+      // cleanup khi đổi file hoặc unmount
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPdfUrl(null);
+    }
+  }, [pdfFile]);
+
   const createNewChatSession = (file: File, fileName: string): string => {
     const newSessionId = Date.now().toString();
     const newSession: ChatSession = {
@@ -134,7 +150,7 @@ export default function ResearchPaperChat() {
     const file = event.target.files?.[0];
     if (!file || file.type !== "application/pdf") return;
 
-    setIsLoading(true);
+    setIsLoadingPdf(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -166,7 +182,7 @@ export default function ResearchPaperChat() {
     } catch (error: any) {
       alert(`Error uploading PDF: ${error.message}`);
     } finally {
-      setIsLoading(false);
+      setIsLoadingPdf(false);
     }
   };
 
@@ -258,7 +274,11 @@ export default function ResearchPaperChat() {
         setPdfFile(file);
       } catch (error: any) {
         console.error("Error fetching PDF:", error);
-        alert(`Error loading PDF: ${error.message || "Unable to fetch PDF from server"}`);
+        alert(
+          `Error loading PDF: ${
+            error.message || "Unable to fetch PDF from server"
+          }`
+        );
         setPdfFile(null);
       } finally {
         setIsLoading(false);
@@ -290,8 +310,15 @@ export default function ResearchPaperChat() {
       } catch (error: any) {
         console.error("Error deleting session:", error);
         toast?.(
-          `Error Deleting Session: ${error.message || "Failed to delete session"}`
-        ) || alert(`Error deleting session: ${error.message || "Failed to delete session"}`);
+          `Error Deleting Session: ${
+            error.message || "Failed to delete session"
+          }`
+        ) ||
+          alert(
+            `Error deleting session: ${
+              error.message || "Failed to delete session"
+            }`
+          );
       } finally {
         setIsLoading(false);
       }
@@ -366,9 +393,9 @@ export default function ResearchPaperChat() {
                 </Button>
                 <Select
                   value={mode}
-                  onValueChange={(value: "Novice" | "Reviewer" | "Researcher") =>
-                    setMode(value)
-                  }
+                  onValueChange={(
+                    value: "Novice" | "Reviewer" | "Researcher"
+                  ) => setMode(value)}
                   disabled={isLoading}
                 >
                   <SelectTrigger className="w-[140px]">
@@ -542,14 +569,16 @@ export default function ResearchPaperChat() {
                       )}
                     </div>
                     <div className="aspect-[3/4] bg-muted rounded-lg flex items-center justify-center">
-                      {isLoading ? (
+                      {isLoadingPdf ? (
                         <div className="text-center">
-                          <p className="text-muted-foreground">Loading PDF...</p>
+                          <p className="text-muted-foreground">
+                            Loading PDF...
+                          </p>
                         </div>
                       ) : (
                         <div className="text-center w-full h-full flex flex-col items-center justify-center">
                           <iframe
-                            src={URL.createObjectURL(pdfFile)}
+                            src={pdfUrl || undefined}
                             title="PDF Preview"
                             width="100%"
                             height="100%"
