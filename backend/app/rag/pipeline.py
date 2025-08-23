@@ -7,6 +7,9 @@ import numpy as np
 import faiss
 import json
 from app.pdf.extract import parse_pdf
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Local Ollama endpoints and models
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
@@ -282,30 +285,245 @@ def get_page_text(pdf_path: str, page_number: int):
     return None
 
 
-def generate_eval_dataset_from_pdf(pdf_path, num_samples=5, output_dir="eval_outputs"):
+def generate_eval_dataset_from_pdf(pdf_path, num_samples=10, num_iterations=3, output_dir="eval_outputs"):
     """
-    Use the LLM to generate evaluation data: question, answer, and citation from the PDF content.
-    Save output to a folder.
+    Use the LLM to generate evaluation data multiple times and append results.
+    Ensures results are appended to existing file if it exists.
     """
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(output_dir, f"{os.path.basename(pdf_path)}.eval.json")
 
+    # Parse PDF once
     pages = parse_pdf(pdf_path)
     content = "\n".join([f"[page {p['page']}] {p['text'][:1000]}" for p in pages if p['text'].strip()])
-    system_prompt = "You are a scientific assistant. Generate an evaluation dataset for a document QA system."
-    user_prompt = f"""
-Based on the following content, generate {num_samples} pairs of question and concise answer. Each answer must cite the source (page number).
+    
+    # Track existing questions to avoid duplicates
+    existing_questions = set()
+    all_results = []
+    
+    # Load existing results if file exists
+    if os.path.exists(output_file):
+        try:
+            with open(output_file, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+                if 'eval_data' in existing_data:
+                    start_idx = existing_data['eval_data'].find('[')
+                    end_idx = existing_data['eval_data'].rfind(']') + 1
+                    if start_idx != -1 and end_idx != -1:
+                        try:
+                            existing_qa = json.loads(existing_data['eval_data'][start_idx:end_idx])
+                            # Add existing QA pairs to results
+                            all_results.extend(existing_qa)
+                            # Track existing questions
+                            existing_questions.update(qa['question'] for qa in existing_qa)
+                            logger.info(f"Loaded {len(existing_qa)} existing QA pairs")
+                        except json.JSONDecodeError:
+                            logger.warning("Could not parse existing QA pairs")
+        except Exception as e:
+            logger.warning(f"Error loading existing file: {e}")
+    
+    # Generate new QA pairs with updated prompt
+    for i in range(num_iterations):
+        try:
+            logger.info(f"Generating batch {i+1}/{num_iterations}")
+            
+            # Update prompt with existing questions to avoid
+            system_prompt = (
+                "You are a scientific assistant. Generate different evaluation questions.\n"
+                "IMPORTANT: Return ONLY valid JSON array with question-answer pairs.\n"
+                "Do not include any other text before or after the JSON array."
+            )
+            
+            user_prompt = f"""
+Based on the following content, generate {num_samples} DIFFERENT pairs of question and concise answer.
+Each answer must cite the source (page number). Focus on key concepts.
+
+Requirements:
+- Questions must be different from existing ones
+- Answers must be concise and cite specific sources
+- Focus on important concepts from the paper
+- Return ONLY the JSON array in this exact format:
+[
+  {{
+    "question": "What is...",
+    "answer": "According to...",
+    "source": "[page X]"
+  }},
+  ...
+]
+
 Content:
 {content}
-Return the result in JSON format: 
-[{{"question": "...", "answer": "...", "source": "..."}}, ...]
 """
-    result = generate_with_ollama(system_prompt, user_prompt)
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump({"pdf": os.path.basename(pdf_path), "eval_data": result}, f, ensure_ascii=False, indent=2)
-    print(f"Saved evaluation dataset to {output_file}")
-    return result
+            
+            result = generate_with_ollama(system_prompt, user_prompt)
+            logger.debug(f"Raw LLM response: {result[:200]}...")
+            
+            # Clean and validate JSON response
+            result = result.strip()
+            if not result.startswith('['):
+                # Try to find JSON array
+                start_idx = result.find('[')
+                if start_idx == -1:
+                    logger.error(f"No JSON array found in response: {result[:100]}...")
+                    continue
+                result = result[start_idx:]
+            
+            if not result.endswith(']'):
+                # Try to find end of JSON array
+                end_idx = result.rfind(']')
+                if end_idx == -1:
+                    logger.error(f"No closing bracket found in response: {result[-100:]}")
+                    continue
+                result = result[:end_idx + 1]
+            
+            try:
+                # Parse new QA pairs
+                new_pairs = json.loads(result)
+                if not isinstance(new_pairs, list):
+                    logger.error(f"Expected JSON array, got: {type(new_pairs)}")
+                    continue
+                
+                # Validate each pair
+                valid_pairs = []
+                for pair in new_pairs:
+                    if not isinstance(pair, dict):
+                        continue
+                    if not all(k in pair for k in ('question', 'answer', 'source')):
+                        continue
+                    if not all(isinstance(pair[k], str) for k in ('question', 'answer', 'source')):
+                        continue
+                    valid_pairs.append(pair)
+                
+                # Filter duplicates
+                unique_pairs = [
+                    pair for pair in valid_pairs 
+                    if pair['question'] not in existing_questions
+                ]
+                
+                # Update tracking
+                existing_questions.update(pair['question'] for pair in unique_pairs)
+                all_results.extend(unique_pairs)
+                
+                logger.info(f"Added {len(unique_pairs)} new unique QA pairs from {len(valid_pairs)} valid pairs")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing error in iteration {i+1}: {str(e)}")
+                logger.error(f"Invalid JSON: {result[:100]}...")
+                continue
+            
+            # Add delay between calls
+            if i < num_iterations - 1:
+                time.sleep(2)
+            
+        except Exception as e:
+            logger.error(f"Error in iteration {i+1}: {str(e)}")
+            continue
 
-# Example usage:
-# generate_eval_dataset_from_pdf("uploads/example.pdf", num_samples
+    # Format final result
+    final_result = (
+        "Here is an evaluation dataset for a document QA system based on the provided content:\n\n"
+        "```json\n" + 
+        json.dumps(all_results, indent=2, ensure_ascii=False) +
+        "\n```"
+    )
+
+    # Save combined results
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump({
+            "pdf": os.path.basename(pdf_path),
+            "eval_data": final_result
+        }, f, ensure_ascii=False, indent=2)
+    
+    logger.info(f"Saved total of {len(all_results)} QA pairs to {output_file}")
+    return final_result
+
+# Utility to convert saved eval JSON to list of (question, answer, context)
+def convert_json_to_qa_list(json_file):
+    """Convert evaluation JSON file to list of (question, answer, context) tuples."""
+    try:
+        # Read the JSON file
+        with open(json_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            logger.debug(f"Raw file content: {content[:200]}...")
+            data = json.loads(content)
+        
+        # Extract the eval_data string
+        eval_data = data.get('eval_data')
+        if not eval_data:
+            raise ValueError("No eval_data field found in JSON")
+        
+        # Find the JSON array part
+        start_marker = "```json\n["
+        end_marker = "]\n```"
+        
+        start_idx = eval_data.find(start_marker)
+        if start_idx == -1:
+            start_idx = eval_data.find("```\n[")
+            if start_idx == -1:
+                raise ValueError("Could not find start of JSON array")
+        start_idx = eval_data.find("[", start_idx)
+        
+        end_idx = eval_data.find(end_marker)
+        if end_idx == -1:
+            end_idx = eval_data.find("]```")
+        if end_idx == -1:
+            raise ValueError("Could not find end of JSON array")
+        end_idx = eval_data.rfind("]", 0, end_idx + 1)
+        
+        # Extract and clean the JSON array
+        json_str = eval_data[start_idx:end_idx + 1]
+        
+        # Process the JSON string line by line
+        lines = json_str.split('\n')
+        cleaned_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line or '...' in line:
+                continue
+                
+            # Quote unquoted source values
+            if '"source":' in line:
+                source_start = line.find('"source":') + len('"source":')
+                source_value = line[source_start:].strip()
+                if source_value.startswith('"'):
+                    cleaned_lines.append(line)
+                else:
+                    # Remove trailing comma if present
+                    if source_value.endswith(','):
+                        source_value = source_value[:-1]
+                    # Quote the source value
+                    quoted_line = line[:source_start] + f' "{source_value}"'
+                    if line.endswith(','):
+                        quoted_line += ','
+                    cleaned_lines.append(quoted_line)
+            else:
+                cleaned_lines.append(line)
+        
+        # Reconstruct valid JSON
+        cleaned_json = '\n'.join(cleaned_lines)
+        # Remove trailing commas
+        cleaned_json = cleaned_json.replace(',\n}', '\n}')
+        cleaned_json = cleaned_json.replace(',\n]', '\n]')
+        
+        logger.debug(f"Cleaned JSON string: {cleaned_json[:200]}...")
+        
+        # Parse JSON and convert to tuples
+        qa_json = json.loads(cleaned_json)
+        qa_list = [
+            (item['question'], item['answer'], item['source'].strip('[]')) 
+            for item in qa_json
+            if all(k in item for k in ('question', 'answer', 'source'))
+        ]
+        
+        return qa_list
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error at {e.pos}: {e.msg}")
+        logger.error(f"Error context: {e.doc[max(0, e.pos-50):e.pos+50]}")
+        raise
+    except Exception as e:
+        logger.error(f"Error converting JSON to QA list: {str(e)}")
+        raise
