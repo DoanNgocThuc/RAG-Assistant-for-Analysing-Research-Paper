@@ -6,14 +6,21 @@ from app.rag.pipeline import process_question, ensure_index_for_pdf
 from app.pdf.extract import parse_pdf
 from app.rag.pipeline import generate_eval_dataset_from_pdf
 from app.rag.pipeline import convert_json_to_qa_list
+from app.rag.pipeline import add_contexts_to_qa_pairs
+from app.rag.pipeline import create_evaluation_dataset
+from app.rag.pipeline import evaluate_faithfulness
+from app.rag.pipeline import create_and_evaluate_dataset
 import requests
 from pathlib import Path
 import json
+from pydantic import BaseModel
+from typing import List, Optional
 
 import logging
 # Add at top of file with other imports
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
 
@@ -220,3 +227,243 @@ async def delete_pdf(filename: str):
     
     return response
 
+    
+
+@router.post("/create_evaluation")
+async def create_evaluation_endpoint(
+    pdf_filename: str = Form(...),
+    num_samples: int = Form(5),
+    num_iterations: int = Form(2),
+    k_contexts: int = Form(1),
+    output_dir: str = Form("eval_outputs")
+):
+    """
+    Create complete evaluation dataset including generated QA pairs with contexts.
+    
+    Args:
+        pdf_filename: Name of the PDF file to evaluate
+        num_samples: Number of QA pairs to generate per iteration (default: 5)
+        num_iterations: Number of generation iterations (default: 2)
+        k_contexts: Number of contexts to retrieve per question (default: 3)
+        output_dir: Directory to save evaluation results (default: eval_outputs)
+    
+    Returns:
+        Dictionary containing:
+        - original_pairs: Generated QA pairs
+        - enriched_pairs: QA pairs with retrieved contexts
+        - stats: Generation and retrieval statistics
+    """
+    try:
+        # Input validation
+        if num_samples < 1 or num_samples > 20:
+            raise HTTPException(
+                status_code=400,
+                detail="num_samples must be between 1 and 20"
+            )
+            
+        if num_iterations < 1 or num_iterations > 5:
+            raise HTTPException(
+                status_code=400,
+                detail="num_iterations must be between 1 and 5"
+            )
+            
+        if k_contexts < 1 or k_contexts > 5:
+            raise HTTPException(
+                status_code=400,
+                detail="k_contexts must be between 1 and 5"
+            )
+
+        # Validate PDF exists
+        pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
+        if not os.path.exists(pdf_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"PDF file {pdf_filename} not found in uploads directory"
+            )
+            
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Check if evaluation file already exists
+        eval_file = os.path.join(output_dir, f"{pdf_filename}.eval.json")
+        if os.path.exists(eval_file):
+            logger.info(f"Existing evaluation found for {pdf_filename}")
+        
+        logger.info(f"Starting evaluation for {pdf_filename} with {num_samples} samples x {num_iterations} iterations")
+            
+        # Run evaluation pipeline
+        result = create_evaluation_dataset(
+            pdf_path=pdf_path,
+            num_samples=num_samples,
+            num_iterations=num_iterations,
+            k_contexts=k_contexts,
+            output_dir=output_dir
+        )
+        
+        # Add metadata to response
+        response = {
+            "pdf": pdf_filename,
+            "parameters": {
+                "num_samples": num_samples,
+                "num_iterations": num_iterations,
+                "k_contexts": k_contexts
+            },
+            "output_file": eval_file,
+            "results": result
+        }
+        
+        logger.info(f"Successfully created evaluation dataset for {pdf_filename}")
+        return response
+        
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.exception("Unexpected error creating evaluation dataset")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing request: {str(e)}"
+        )
+    
+@router.post("/evaluate_faithfulness_from_file")
+async def evaluate_faithfulness_from_file(
+    filename: str = Form(...),
+    output_dir: str = Form("eval_outputs")
+):
+    """
+    Evaluate faithfulness using QA pairs from a JSON file.
+    Expects file in format created by create_evaluation_dataset.
+    """
+    try:
+        # Input validation
+        input_file = os.path.join(output_dir, filename)
+        if not os.path.exists(input_file):
+            raise HTTPException(
+                status_code=404,
+                detail=f"File not found: {filename}"
+            )
+            
+        # Load QA pairs from file
+        try:
+            with open(input_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                qa_pairs = data.get('qa_pairs', [])
+                
+            if not qa_pairs:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No QA pairs found in file"
+                )
+                
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid JSON file: {str(e)}"
+            )
+            
+        # Run faithfulness evaluation
+        results = evaluate_faithfulness(
+            qa_pairs=qa_pairs,
+            output_dir=output_dir
+        )
+        
+        return {
+            "message": "Evaluation completed successfully",
+            "input_file": filename,
+            "total_evaluated": results["statistics"]["evaluated_pairs"],
+            "average_faithfulness": results["statistics"]["average_faithfulness"],
+            "detailed_results": results
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error during faithfulness evaluation")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing request: {str(e)}"
+        )
+    
+
+@router.post("/create_evaluate_rag")
+async def create_evaluate_rag_endpoint(
+    pdf_filename: str = Form(...),
+    num_samples: int = Form(5),
+    num_iterations: int = Form(2),
+    k_contexts: int = Form(1),
+    output_dir: str = Form("eval_outputs")
+):
+    """
+    Complete pipeline to generate QA pairs and evaluate their faithfulness.
+    
+    Args:
+        pdf_filename: Name of the PDF file to evaluate
+        num_samples: Number of QA pairs to generate per iteration (default: 5)
+        num_iterations: Number of generation iterations (default: 2)
+        k_contexts: Number of contexts per question (default: 3)
+        output_dir: Directory to save results (default: eval_outputs)
+    """
+    try:
+        # Input validation
+        if num_samples < 1 or num_samples > 20:
+            raise HTTPException(
+                status_code=400,
+                detail="num_samples must be between 1 and 20"
+            )
+            
+        if num_iterations < 1 or num_iterations > 5:
+            raise HTTPException(
+                status_code=400,
+                detail="num_iterations must be between 1 and 5"
+            )
+            
+        if k_contexts < 1 or k_contexts > 5:
+            raise HTTPException(
+                status_code=400,
+                detail="k_contexts must be between 1 and 5"
+            )
+
+        # Validate PDF exists
+        pdf_path = os.path.join("uploads", pdf_filename)
+        if not os.path.exists(pdf_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"PDF file {pdf_filename} not found"
+            )
+            
+        # Run complete pipeline
+        results = create_and_evaluate_dataset(
+            pdf_path=pdf_path,
+            num_samples=num_samples,
+            num_iterations=num_iterations,
+            k_contexts=k_contexts,
+            output_dir=output_dir
+        )
+        
+        # Return summarized results
+        return {
+            "message": "Evaluation completed successfully",
+            "pdf": results["pdf"],
+            "stats": {
+                "total_pairs": results["generation_stats"]["total_pairs"],
+                "average_faithfulness": results["evaluation_stats"]["average_faithfulness"],
+                "min_score": results["evaluation_stats"]["min_score"],
+                "max_score": results["evaluation_stats"]["max_score"]
+            },
+            "output_files": results["files"],
+            "qa_pairs": results["qa_pairs"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error in evaluation pipeline")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing request: {str(e)}"
+        )

@@ -287,68 +287,68 @@ def get_page_text(pdf_path: str, page_number: int):
 
 def generate_eval_dataset_from_pdf(pdf_path, num_samples=10, num_iterations=3, output_dir="eval_outputs"):
     """
-    Use the LLM to generate evaluation data multiple times and append results.
-    Ensures results are appended to existing file if it exists.
+    Use the LLM to generate evaluation questions and answers multiple times and append results.
+    The 'source' field will be left empty for later context insertion.
     """
-    # Ensure output directory exists
-    os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f"{os.path.basename(pdf_path)}.eval.json")
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        output_file = os.path.join(output_dir, f"{os.path.basename(pdf_path)}.eval.json")
 
-    # Parse PDF once
-    pages = parse_pdf(pdf_path)
-    content = "\n".join([f"[page {p['page']}] {p['text'][:1000]}" for p in pages if p['text'].strip()])
-    
-    # Track existing questions to avoid duplicates
-    existing_questions = set()
-    all_results = []
-    
-    # Load existing results if file exists
-    if os.path.exists(output_file):
-        try:
-            with open(output_file, 'r', encoding='utf-8') as f:
-                existing_data = json.load(f)
-                if 'eval_data' in existing_data:
-                    start_idx = existing_data['eval_data'].find('[')
-                    end_idx = existing_data['eval_data'].rfind(']') + 1
-                    if start_idx != -1 and end_idx != -1:
-                        try:
-                            existing_qa = json.loads(existing_data['eval_data'][start_idx:end_idx])
-                            # Add existing QA pairs to results
-                            all_results.extend(existing_qa)
-                            # Track existing questions
-                            existing_questions.update(qa['question'] for qa in existing_qa)
-                            logger.info(f"Loaded {len(existing_qa)} existing QA pairs")
-                        except json.JSONDecodeError:
-                            logger.warning("Could not parse existing QA pairs")
-        except Exception as e:
-            logger.warning(f"Error loading existing file: {e}")
-    
-    # Generate new QA pairs with updated prompt
-    for i in range(num_iterations):
-        try:
-            logger.info(f"Generating batch {i+1}/{num_iterations}")
-            
-            # Update prompt with existing questions to avoid
-            system_prompt = (
-                "You are a scientific assistant. Generate different evaluation questions.\n"
-                "IMPORTANT: Return ONLY valid JSON array with question-answer pairs.\n"
-                "Do not include any other text before or after the JSON array."
-            )
-            
-            user_prompt = f"""
+        # Parse PDF once
+        pages = parse_pdf(pdf_path)
+        content_blocks = [
+            f"[page {p['page']}] {p['text'][:1000].strip()}" for p in pages if p['text'].strip()
+        ]
+        content = "\n".join(content_blocks)
+
+        existing_questions = set()
+        all_results = []
+        prompt_history = []  # Store prompts and responses
+
+        # Load existing results if file exists
+        if os.path.exists(output_file):
+            try:
+                with open(output_file, 'r', encoding='utf-8') as f:
+                    existing_data = json.load(f)
+                    if 'eval_data' in existing_data:
+                        start_idx = existing_data['eval_data'].find('[')
+                        end_idx = existing_data['eval_data'].rfind(']') + 1
+                        if start_idx != -1 and end_idx != -1:
+                            try:
+                                existing_qa = json.loads(existing_data['eval_data'][start_idx:end_idx])
+                                all_results.extend(existing_qa)
+                                existing_questions.update(qa['question'] for qa in existing_qa)
+                                logger.info(f"Loaded {len(existing_qa)} existing QA pairs")
+                            except json.JSONDecodeError:
+                                logger.warning("Could not parse existing QA pairs")
+            except Exception as e:
+                logger.warning(f"Error loading existing file: {e}")
+
+        # Generate new QA pairs with updated prompt
+        for i in range(num_iterations):
+            try:
+                logger.info(f"Generating batch {i+1}/{num_iterations}")
+
+                system_prompt = (
+                    "You are both scientific assistant and novice. Generate different evaluation questions.\n"
+                    "IMPORTANT: Return ONLY valid JSON array with question-answer pairs.\n"
+                    "Do not include any other text before or after the JSON array."
+                )
+
+                user_prompt = f"""
 Based on the following content, generate {num_samples} DIFFERENT pairs of question and concise answer.
-Each answer must cite the source (page number). Focus on key concepts.
 
 Requirements:
 - Questions must be different from existing ones
-- Answers must be concise and cite specific sources
+- Answers must be concise and relevant
+- For the 'source' field, leave it empty (""), it will be filled later
 - Focus on important concepts from the paper
 - Return ONLY the JSON array in this exact format:
 [
   {{
-    "question": "What is...",
-    "answer": "According to...",
-    "source": "[page X]"
+    "question": "What/How/Why/Who/When ...?",
+    "answer": "According to ...",
+    "source": ""
   }},
   ...
 ]
@@ -356,36 +356,40 @@ Requirements:
 Content:
 {content}
 """
-            
-            result = generate_with_ollama(system_prompt, user_prompt)
-            logger.debug(f"Raw LLM response: {result[:200]}...")
-            
-            # Clean and validate JSON response
-            result = result.strip()
-            if not result.startswith('['):
-                # Try to find JSON array
-                start_idx = result.find('[')
-                if start_idx == -1:
-                    logger.error(f"No JSON array found in response: {result[:100]}...")
-                    continue
-                result = result[start_idx:]
-            
-            if not result.endswith(']'):
-                # Try to find end of JSON array
-                end_idx = result.rfind(']')
-                if end_idx == -1:
-                    logger.error(f"No closing bracket found in response: {result[-100:]}")
-                    continue
-                result = result[:end_idx + 1]
-            
-            try:
-                # Parse new QA pairs
+                # Generate response
+                result = generate_with_ollama(system_prompt, user_prompt)
+                logger.debug(f"Raw LLM response: {result[:200]}...")
+
+                # Store prompt and response
+                prompt_record = {
+                    "iteration": i + 1,
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "system_prompt": system_prompt,
+                    "user_prompt": user_prompt,
+                    "raw_response": result
+                }
+                prompt_history.append(prompt_record)
+
+                result = result.strip()
+                if not result.startswith('['):
+                    start_idx = result.find('[')
+                    if start_idx == -1:
+                        logger.error(f"No JSON array found in response: {result[:100]}...")
+                        continue
+                    result = result[start_idx:]
+
+                if not result.endswith(']'):
+                    end_idx = result.rfind(']')
+                    if end_idx == -1:
+                        logger.error(f"No closing bracket found in response: {result[-100:]}")
+                        continue
+                    result = result[:end_idx + 1]
+
                 new_pairs = json.loads(result)
                 if not isinstance(new_pairs, list):
                     logger.error(f"Expected JSON array, got: {type(new_pairs)}")
                     continue
-                
-                # Validate each pair
+
                 valid_pairs = []
                 for pair in new_pairs:
                     if not isinstance(pair, dict):
@@ -394,50 +398,58 @@ Content:
                         continue
                     if not all(isinstance(pair[k], str) for k in ('question', 'answer', 'source')):
                         continue
+                    # Only accept pairs with empty source
+                    if pair['source'] != "":
+                        continue
                     valid_pairs.append(pair)
-                
-                # Filter duplicates
+
                 unique_pairs = [
-                    pair for pair in valid_pairs 
+                    pair for pair in valid_pairs
                     if pair['question'] not in existing_questions
                 ]
-                
-                # Update tracking
+
                 existing_questions.update(pair['question'] for pair in unique_pairs)
                 all_results.extend(unique_pairs)
-                
+
                 logger.info(f"Added {len(unique_pairs)} new unique QA pairs from {len(valid_pairs)} valid pairs")
-                
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON parsing error in iteration {i+1}: {str(e)}")
-                logger.error(f"Invalid JSON: {result[:100]}...")
+
+                if i < num_iterations - 1:
+                    time.sleep(2)
+
+            except Exception as e:
+                logger.error(f"Error in iteration {i+1}: {str(e)}")
                 continue
-            
-            # Add delay between calls
-            if i < num_iterations - 1:
-                time.sleep(2)
-            
-        except Exception as e:
-            logger.error(f"Error in iteration {i+1}: {str(e)}")
-            continue
 
-    # Format final result
-    final_result = (
-        "Here is an evaluation dataset for a document QA system based on the provided content:\n\n"
-        "```json\n" + 
-        json.dumps(all_results, indent=2, ensure_ascii=False) +
-        "\n```"
-    )
+        final_result = (
+            "Here is an evaluation dataset for a document QA system based on the provided content:\n\n"
+            "```json\n" +
+            json.dumps(all_results, indent=2, ensure_ascii=False) +
+            "\n```"
+        )
 
-    # Save combined results
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump({
+        # Save everything to output file
+        output_data = {
             "pdf": os.path.basename(pdf_path),
+            "metadata": {
+                "creation_date": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "num_samples": num_samples,
+                "num_iterations": num_iterations,
+                "total_qa_pairs": len(all_results)
+            },
+            "prompt_history": prompt_history,
             "eval_data": final_result
-        }, f, ensure_ascii=False, indent=2)
-    
-    logger.info(f"Saved total of {len(all_results)} QA pairs to {output_file}")
-    return final_result
+        }
+
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(output_data, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"Saved total of {len(all_results)} QA pairs and {len(prompt_history)} prompts to {output_file}")
+        return final_result
+
+    except Exception as e:
+        logger.error(f"Error generating evaluation dataset: {str(e)}")
+        raise
+
 
 # Utility to convert saved eval JSON to list of (question, answer, context)
 def convert_json_to_qa_list(json_file):
@@ -526,4 +538,343 @@ def convert_json_to_qa_list(json_file):
         raise
     except Exception as e:
         logger.error(f"Error converting JSON to QA list: {str(e)}")
+        raise
+
+def add_contexts_to_qa_pairs(qa_pairs: list, pdf_path: str, k: int = 3) -> list:
+    """
+    Add retrieved contexts to QA pairs using retrieve_top_k function.
+    
+    Args:
+        qa_pairs: List of dicts with 'question', 'answer', and empty 'context'
+        pdf_path: Path to the PDF file
+        k: Number of top contexts to retrieve
+        
+    Returns:
+        List of QA pairs with added contexts
+    """
+    logger.info(f"Adding contexts to {len(qa_pairs)} QA pairs...")
+    
+    enriched_pairs = []
+    
+    for pair in qa_pairs:
+        try:
+            # Get top-k contexts for the question
+            contexts = retrieve_top_k(pair['question'], pdf_path, k)
+            
+            # Format contexts into a single string
+            context_texts = []
+            for ctx in contexts:
+                page = ctx['metadata']['page']
+                text = ctx['text'][:1000].strip()
+                context_texts.append(f"[page {page}] {text}")
+            
+            # Create enriched QA pair
+            enriched_pair = {
+                'question': pair['question'],
+                'answer': pair['answer'],
+                'context': '\n\n'.join(context_texts)
+            }
+            
+            enriched_pairs.append(enriched_pair)
+            logger.debug(f"Added {len(contexts)} contexts for question: {pair['question'][:50]}...")
+            
+        except Exception as e:
+            logger.error(f"Error adding contexts for question '{pair['question'][:50]}...': {str(e)}")
+            # Keep original pair without context if retrieval fails
+            enriched_pairs.append(pair)
+            
+    logger.info(f"Successfully added contexts to {len(enriched_pairs)} QA pairs")
+    return enriched_pairs
+
+def create_evaluation_dataset(
+    pdf_path: str,
+    num_samples: int = 5,
+    num_iterations: int = 2,
+    k_contexts: int = 3,
+    output_dir: str = "eval_outputs"
+) -> dict:
+    """
+    Complete pipeline to create evaluation dataset:
+    1. Generate QA pairs from PDF
+    2. Convert to list format
+    3. Add contexts to each pair
+    
+    Args:
+        pdf_path: Path to PDF file
+        num_samples: Number of QA pairs to generate per iteration
+        num_iterations: Number of generation iterations
+        k_contexts: Number of contexts to retrieve per question
+        output_dir: Directory to save evaluation data
+        
+    Returns:
+        dict with evaluation results containing:
+        - original_pairs: List of generated QA pairs
+        - enriched_pairs: List of QA pairs with contexts
+        - stats: Generation statistics
+    """
+    logger.info(f"Starting evaluation dataset creation for {pdf_path}")
+    
+    try:
+        # 1. Generate initial QA pairs
+        logger.info("Step 1: Generating QA pairs...")
+        result = generate_eval_dataset_from_pdf(
+            pdf_path=pdf_path,
+            num_samples=num_samples,
+            num_iterations=num_iterations,
+            output_dir=output_dir
+        )
+        
+        # 2. Convert to list format
+        logger.info("Step 2: Converting to QA list format...")
+        output_file = os.path.join(output_dir, f"{os.path.basename(pdf_path)}.eval.json")
+        qa_pairs = convert_json_to_qa_list(output_file)
+        
+        # Convert tuples to dicts for context addition
+        qa_dicts = [
+            {
+                "question": q,
+                "answer": a,
+                "context": ""  # Empty context to be filled
+            }
+            for q, a, _ in qa_pairs
+        ]
+        
+        # 3. Add contexts to each pair
+        logger.info("Step 3: Adding contexts to QA pairs...")
+        enriched_pairs = add_contexts_to_qa_pairs(
+            qa_pairs=qa_dicts,
+            pdf_path=pdf_path,
+            k=k_contexts
+        )
+        
+        # Prepare return data
+        stats = {
+            "total_pairs": len(enriched_pairs),
+            "successful_contexts": len([p for p in enriched_pairs if p.get('context')])
+        }
+        
+        logger.info(f"Completed evaluation dataset creation with {stats['total_pairs']} pairs")
+        
+        # Save enriched dataset to a new file
+        enriched_file = os.path.join(
+            output_dir, 
+            f"{os.path.splitext(os.path.basename(pdf_path))[0]}.enriched.json"
+        )
+        
+        enriched_data = {
+            "qa_pairs": enriched_pairs
+        }
+        
+        with open(enriched_file, 'w', encoding='utf-8') as f:
+            json.dump(enriched_data, f, ensure_ascii=False, indent=2)
+            
+        logger.info(f"Saved enriched dataset to {enriched_file}")
+        
+        # Return complete results
+        return {
+            "pdf": os.path.basename(pdf_path),
+            "original_pairs": qa_dicts,
+            "enriched_pairs": enriched_pairs,
+            "stats": stats,
+            "enriched_file": enriched_file
+        }
+        
+    except Exception as e:
+        logger.error(f"Error creating evaluation dataset: {str(e)}")
+        raise
+
+
+def evaluate_faithfulness(qa_pairs: list, output_dir: str = "eval_outputs") -> dict:
+    """
+    Evaluate faithfulness of QA pairs using LLM.
+
+    Args:
+        qa_pairs: List of dicts with question, answer, and context
+        output_dir: Directory to save evaluation results
+
+    Returns:
+        Dictionary containing evaluation results and scores
+    """
+    logger.info(f"Starting faithfulness evaluation for {len(qa_pairs)} QA pairs")
+
+    system_prompt = """You are an expert evaluator for question answering systems.
+Your task is to evaluate the faithfulness of answers - how well they align with the provided contexts.
+
+Score faithfulness using these ranges:
+1-20 = Answer completely contradicts or fabricates information not in context
+21-40 = Answer mostly unsupported, with some minor alignment
+41-60 = Answer partially reflects context but includes unsupported claims
+61-80 = Answer mostly supported by context, with minor unsupported additions
+81-100 = Answer perfectly reflects information from context without additions
+
+IMPORTANT: Return ONLY valid JSON with scores and explanations.
+Do not include any other text before or after the JSON."""
+
+    all_evaluations = []
+
+    for i, pair in enumerate(qa_pairs, 1):
+        try:
+            user_prompt = f"""
+Evaluate the faithfulness of this QA pair:
+
+Question: {pair['question']}
+Context: {pair['context']}
+Answer: {pair['answer']}
+
+Analyze:
+1. Whether all claims in the answer are supported by the context
+2. Whether the answer adds any unsupported information
+3. Whether the answer contradicts any context information
+
+Return your evaluation in this exact JSON format:
+{{
+    "faithfulness_score": score_between_1_and_100,
+    "explanation": "Detailed explanation of the score",
+    "supported_claims": ["List specific claims that are supported"],
+    "unsupported_claims": ["List claims not found in context"],
+    "contradictions": ["List any contradictions with context"]
+}}"""
+
+            # Get LLM evaluation
+            result = generate_with_ollama(system_prompt, user_prompt)
+            logger.debug(f"Raw LLM response for pair {i}: {result[:200]}...")
+
+            # Clean and parse response
+            result = result.strip()
+            if not result.startswith('{'):
+                start_idx = result.find('{')
+                if start_idx == -1:
+                    raise ValueError("No JSON object found in response")
+                result = result[start_idx:]
+
+            if not result.endswith('}'):
+                end_idx = result.rfind('}')
+                if end_idx == -1:
+                    raise ValueError("No closing brace found in response")
+                result = result[:end_idx + 1]
+
+            # Parse evaluation
+            evaluation = json.loads(result)
+
+            # Add question for reference
+            evaluation['question'] = pair['question']
+            all_evaluations.append(evaluation)
+
+            logger.info(f"Evaluated pair {i}/{len(qa_pairs)}: score = {evaluation['faithfulness_score']}")
+
+            # Add delay between evaluations
+            if i < len(qa_pairs):
+                time.sleep(2)
+
+        except Exception as e:
+            logger.error(f"Error evaluating pair {i}: {str(e)}")
+            continue
+
+    # Calculate statistics
+    scores = [e['faithfulness_score'] for e in all_evaluations]
+    avg_score = sum(scores) / len(scores) if scores else 0
+
+    evaluation_results = {
+        "evaluations": all_evaluations,
+        "statistics": {
+            "total_pairs": len(qa_pairs),
+            "evaluated_pairs": len(all_evaluations),
+            "average_faithfulness": round(avg_score, 2),
+            "max_score": max(scores) if scores else 0,
+            "min_score": min(scores) if scores else 0
+        },
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    # Save results
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"faithfulness_evaluation_{int(time.time())}.json")
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(evaluation_results, f, ensure_ascii=False, indent=2)
+
+    logger.info(f"Saved evaluation results to {output_file}")
+    logger.info(f"Average faithfulness score: {avg_score:.2f}")
+
+    return evaluation_results
+
+
+def create_and_evaluate_dataset(
+    pdf_path: str,
+    num_samples: int = 5,
+    num_iterations: int = 2,
+    k_contexts: int = 3,
+    output_dir: str = "eval_outputs"
+) -> dict:
+    """
+    Complete pipeline to:
+    1. Create evaluation dataset with contexts
+    2. Evaluate faithfulness of the QA pairs
+    
+    Args:
+        pdf_path: Path to PDF file
+        num_samples: Number of QA pairs to generate per iteration
+        num_iterations: Number of generation iterations
+        k_contexts: Number of contexts to retrieve per question
+        output_dir: Directory to save results
+        
+    Returns:
+        Dictionary containing both dataset creation and evaluation results
+    """
+    logger.info(f"Starting complete evaluation pipeline for {pdf_path}")
+    
+    try:
+        # Step 1: Create evaluation dataset
+        logger.info("Step 1: Creating evaluation dataset...")
+        dataset_results = create_evaluation_dataset(
+            pdf_path=pdf_path,
+            num_samples=num_samples,
+            num_iterations=num_iterations,
+            k_contexts=k_contexts,
+            output_dir=output_dir
+        )
+        
+        # Step 2: Evaluate faithfulness
+        logger.info("Step 2: Evaluating faithfulness...")
+        evaluation_results = evaluate_faithfulness(
+            qa_pairs=dataset_results["enriched_pairs"],
+            output_dir=output_dir
+        )
+        
+        # Combine results
+        final_results = {
+            "pdf": dataset_results["pdf"],
+            "generation_stats": dataset_results["stats"],
+            "evaluation_stats": evaluation_results["statistics"],
+            "qa_pairs": [
+                {
+                    **pair,
+                    "evaluation": next(
+                        (e for e in evaluation_results["evaluations"] if e["question"] == pair["question"]),
+                        None
+                    )
+                }
+                for pair in dataset_results["enriched_pairs"]
+            ],
+            "files": {
+                "enriched_dataset": dataset_results["enriched_file"],
+                "evaluation_results": evaluation_results.get("output_file")
+            },
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        # Save final results
+        final_output = os.path.join(
+            output_dir,
+            f"{os.path.splitext(os.path.basename(pdf_path))[0]}_complete_evaluation.json"
+        )
+        
+        with open(final_output, 'w', encoding='utf-8') as f:
+            json.dump(final_results, f, ensure_ascii=False, indent=2)
+            
+        logger.info(f"Saved complete evaluation results to {final_output}")
+        return final_results
+        
+    except Exception as e:
+        logger.error(f"Error in evaluation pipeline: {str(e)}")
         raise
