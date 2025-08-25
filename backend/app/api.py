@@ -1,6 +1,6 @@
 # api.py
 import os
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException,Query
 from fastapi.responses import JSONResponse, FileResponse  
 from app.rag.pipeline import process_question, ensure_index_for_pdf
 from app.pdf.extract import parse_pdf
@@ -9,7 +9,9 @@ from app.rag.pipeline import convert_json_to_qa_list
 from app.rag.pipeline import add_contexts_to_qa_pairs
 from app.rag.pipeline import create_evaluation_dataset
 from app.rag.pipeline import evaluate_faithfulness
+from app.rag.pipeline import evaluate_answer_relevance
 from app.rag.pipeline import create_and_evaluate_dataset
+from app.rag.pipeline import load_rag_benchmark_dataset
 import requests
 from pathlib import Path
 import json
@@ -333,11 +335,11 @@ async def create_evaluation_endpoint(
 @router.post("/evaluate_faithfulness_from_file")
 async def evaluate_faithfulness_from_file(
     filename: str = Form(...),
-    output_dir: str = Form("eval_outputs")
+    output_dir: str = Form("evaluation_scores")
 ):
     """
     Evaluate faithfulness using QA pairs from a JSON file.
-    Expects file in format created by create_evaluation_dataset.
+    Uses the new evaluate_faithfulness(benchmark_file, output_dir) function.
     """
     try:
         # Input validation
@@ -347,43 +349,84 @@ async def evaluate_faithfulness_from_file(
                 status_code=404,
                 detail=f"File not found: {filename}"
             )
-            
-        # Load QA pairs from file
+
+        # Run faithfulness evaluation using the new function
         try:
-            with open(input_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                qa_pairs = data.get('qa_pairs', [])
-                
-            if not qa_pairs:
-                raise HTTPException(
-                    status_code=400,
-                    detail="No QA pairs found in file"
-                )
-                
-        except json.JSONDecodeError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid JSON file: {str(e)}"
+            results = evaluate_faithfulness(
+                benchmark_file=input_file,
+                output_dir=output_dir
             )
-            
-        # Run faithfulness evaluation
-        results = evaluate_faithfulness(
-            qa_pairs=qa_pairs,
-            output_dir=output_dir
-        )
-        
+        except Exception as e:
+            logger.error(f"Error during faithfulness evaluation: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error during faithfulness evaluation: {str(e)}"
+            )
+
         return {
             "message": "Evaluation completed successfully",
             "input_file": filename,
             "total_evaluated": results["statistics"]["evaluated_pairs"],
             "average_faithfulness": results["statistics"]["average_faithfulness"],
+            "min_score": results["statistics"]["min_score"],
+            "max_score": results["statistics"]["max_score"],
             "detailed_results": results
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("Error during faithfulness evaluation")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing request: {str(e)}"
+        )
+
+@router.post("/evaluate_relevance_from_file")
+async def evaluate_relevance_from_file(
+    filename: str = Form(...),
+    output_dir: str = Form("benchmark_datasets")
+):
+    """
+    Evaluate answer relevance using QA pairs from a JSON file.
+    Uses the evaluate_answer_relevance(benchmark_file, output_dir) function.
+    """
+    try:
+        # Input validation
+        input_file = os.path.join(output_dir, filename)
+        if not os.path.exists(input_file):
+            raise HTTPException(
+                status_code=404,
+                detail=f"File not found: {filename}"
+            )
+
+        # Run relevance evaluation
+        try:
+            results = evaluate_answer_relevance(
+                benchmark_file=input_file,
+                output_dir=output_dir
+            )
+        except Exception as e:
+            logger.error(f"Error during relevance evaluation: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error during relevance evaluation: {str(e)}"
+            )
+
+        return {
+            "message": "Evaluation completed successfully",
+            "input_file": filename,
+            "total_evaluated": results["statistics"]["evaluated_pairs"],
+            "average_relevance": results["statistics"]["average_relevance"],
+            "min_score": results["statistics"]["min_score"],
+            "max_score": results["statistics"]["max_score"],
+            "detailed_results": results
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error during relevance evaluation")
         raise HTTPException(
             status_code=500,
             detail=f"Error processing request: {str(e)}"
@@ -467,3 +510,18 @@ async def create_evaluate_rag_endpoint(
             status_code=500,
             detail=f"Error processing request: {str(e)}"
         )
+    
+
+@router.post("/benchmark_dataset")
+async def get_benchmark_dataset(
+    subset: Optional[str] = "train",  # Default to train split
+    num_samples: Optional[int] = 20,  # Default to 20 records
+    save_to_file: bool = True  # Default to save file
+):
+    try:
+        result = load_rag_benchmark_dataset(subset, num_samples, save_to_file)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

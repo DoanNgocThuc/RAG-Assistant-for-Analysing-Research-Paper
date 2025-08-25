@@ -8,6 +8,10 @@ import faiss
 import json
 from app.pdf.extract import parse_pdf
 import logging
+from datasets import load_dataset
+import datetime
+
+ds = load_dataset("neural-bridge/rag-dataset-12000")
 
 logger = logging.getLogger(__name__)
 
@@ -684,28 +688,227 @@ def create_evaluation_dataset(
         raise
 
 
-def evaluate_faithfulness(qa_pairs: list, output_dir: str = "eval_outputs") -> dict:
+def evaluate_answer_relevance(
+    benchmark_file: str,
+    output_dir: str = "eval_outputs"
+) -> dict:
     """
-    Evaluate faithfulness of QA pairs using LLM.
+    Evaluate answer relevance of QA pairs loaded from a benchmark JSON file.
+    This measures how well the answer addresses the actual question being asked.
 
     Args:
-        qa_pairs: List of dicts with question, answer, and context
+        benchmark_file: Path to the benchmark dataset file (in benchmark_datasets)
         output_dir: Directory to save evaluation results
 
     Returns:
         Dictionary containing evaluation results and scores
     """
-    logger.info(f"Starting faithfulness evaluation for {len(qa_pairs)} QA pairs")
+    logger.info(f"Loading benchmark dataset from {benchmark_file}")
 
+    # Load QA pairs from benchmark file
+    try:
+        with open(benchmark_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        # Try to extract QA pairs from common keys
+        if "data" in data:
+            # If multiple splits, flatten all
+            qa_pairs = []
+            if isinstance(data["data"], dict):
+                for split in data["data"].values():
+                    qa_pairs.extend(split)
+            else:
+                qa_pairs = data["data"]
+        elif "qa_pairs" in data:
+            qa_pairs = data["qa_pairs"]
+        else:
+            qa_pairs = data
+        logger.info(f"Loaded {len(qa_pairs)} QA pairs from benchmark")
+    except Exception as e:
+        logger.error(f"Error loading benchmark file: {str(e)}")
+        raise
+
+    # Only keep pairs with question and answer
+    filtered_pairs = []
+    for pair in qa_pairs:
+        if all(k in pair for k in ("question", "answer")):
+            filtered_pairs.append({
+                "question": pair["question"],
+                "answer": pair["answer"]
+            })
+    qa_pairs = filtered_pairs
+
+    # Answer relevance evaluation logic
+    system_prompt = """You are an expert evaluator for question answering systems.
+Your task is to evaluate how relevant and responsive the answers are to their questions.
+Focus on whether the answer directly addresses what was asked.
+
+Score relevance using these exact criteria:
+1 = Answer is completely off-topic or unrelated to the question
+2 = Answer barely relates to the question's topic
+3 = Answer touches on the topic but doesn't address the specific question
+4 = Answer partially addresses the question but misses key aspects
+5 = Answer addresses the main point but could be more focused
+6 = Answer is mostly relevant with minor divergences
+7 = Answer is relevant and addresses the question well
+8 = Answer is highly relevant with good focus on what was asked
+9 = Answer directly addresses all aspects of the question
+10 = Answer perfectly matches the question's requirements with excellent focus
+
+IMPORTANT: Return ONLY valid JSON with scores and explanations.
+Do not include any other text before or after the JSON."""
+
+    all_evaluations = []
+
+    for i, pair in enumerate(qa_pairs, 1):
+        try:
+            user_prompt = f"""
+Evaluate the relevance of this answer to its question:
+
+Question: {pair['question']}
+Answer: {pair['answer']}
+
+Analyze:
+1. How directly the answer addresses the specific question asked
+2. Whether the answer includes unnecessary or off-topic information
+3. Whether the answer covers all aspects of the question
+4. The focus and precision of the answer
+
+Return your evaluation in this exact JSON format:
+{{
+    "relevance_score": score_between_1_and_10,
+    "explanation": "Detailed explanation of the score",
+    "addressed_aspects": ["List aspects of the question that were addressed"],
+    "missing_aspects": ["List aspects of the question that were not addressed"],
+    "off_topic_content": ["List any irrelevant or unnecessary content"]
+}}"""
+
+            # Get LLM evaluation
+            result = generate_with_ollama(system_prompt, user_prompt)
+            logger.debug(f"Raw LLM response for pair {i}: {result[:200]}...")
+
+            # Clean and parse response
+            result = result.strip()
+            if not result.startswith('{'):
+                start_idx = result.find('{')
+                if start_idx == -1:
+                    raise ValueError("No JSON object found in response")
+                result = result[start_idx:]
+
+            if not result.endswith('}'):
+                end_idx = result.rfind('}')
+                if end_idx == -1:
+                    raise ValueError("No closing brace found in response")
+                result = result[:end_idx + 1]
+
+            # Parse evaluation
+            evaluation = json.loads(result)
+
+            # Add question for reference
+            evaluation['question'] = pair['question']
+            all_evaluations.append(evaluation)
+
+            logger.info(f"Evaluated pair {i}/{len(qa_pairs)}: score = {evaluation['relevance_score']}")
+
+            # Add delay between evaluations
+            if i < len(qa_pairs):
+                time.sleep(2)
+
+        except Exception as e:
+            logger.error(f"Error evaluating pair {i}: {str(e)}")
+            continue
+
+    # Calculate statistics
+    scores = [e['relevance_score'] for e in all_evaluations]
+    avg_score = sum(scores) / len(scores) if scores else 0
+
+    evaluation_results = {
+        "evaluations": all_evaluations,
+        "statistics": {
+            "total_pairs": len(qa_pairs),
+            "evaluated_pairs": len(all_evaluations),
+            "average_relevance": round(avg_score, 2),
+            "max_score": max(scores) if scores else 0,
+            "min_score": min(scores) if scores else 0
+        }
+    }
+
+    # Save results
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"relevance_evaluation.json")
+
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(evaluation_results, f, ensure_ascii=False, indent=2)
+
+    logger.info(f"Saved evaluation results to {output_file}")
+    logger.info(f"Average relevance score: {avg_score:.2f}")
+
+    return evaluation_results
+
+def evaluate_faithfulness(
+    benchmark_file: str,
+    output_dir: str = "eval_outputs"
+) -> dict:
+    """
+    Evaluate faithfulness of QA pairs loaded from a benchmark JSON file.
+
+    Args:
+        benchmark_file: Path to the benchmark dataset file (in benchmark_datasets)
+        output_dir: Directory to save evaluation results
+
+    Returns:
+        Dictionary containing evaluation results and scores
+    """
+    logger.info(f"Loading benchmark dataset from {benchmark_file}")
+
+    # Load QA pairs from benchmark file
+    try:
+        with open(benchmark_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        # Try to extract QA pairs from common keys
+        if "data" in data:
+            # If multiple splits, flatten all
+            qa_pairs = []
+            if isinstance(data["data"], dict):
+                for split in data["data"].values():
+                    qa_pairs.extend(split)
+            else:
+                qa_pairs = data["data"]
+        elif "qa_pairs" in data:
+            qa_pairs = data["qa_pairs"]
+        else:
+            qa_pairs = data
+        logger.info(f"Loaded {len(qa_pairs)} QA pairs from benchmark")
+    except Exception as e:
+        logger.error(f"Error loading benchmark file: {str(e)}")
+        raise
+
+    # Only keep pairs with question, answer, and context (if available)
+    filtered_pairs = []
+    for pair in qa_pairs:
+        if all(k in pair for k in ("question", "answer")):
+            # If context missing, set to empty string
+            filtered_pairs.append({
+                "question": pair["question"],
+                "answer": pair["answer"],
+                "context": pair.get("context", "")
+            })
+    qa_pairs = filtered_pairs
+
+    # Faithfulness evaluation logic (unchanged)
     system_prompt = """You are an expert evaluator for question answering systems.
 Your task is to evaluate the faithfulness of answers - how well they align with the provided contexts.
 
-Score faithfulness using these ranges:
-1-20 = Answer completely contradicts or fabricates information not in context
-21-40 = Answer mostly unsupported, with some minor alignment
-41-60 = Answer partially reflects context but includes unsupported claims
-61-80 = Answer mostly supported by context, with minor unsupported additions
-81-100 = Answer perfectly reflects information from context without additions
+Score faithfulness using these exact groups:
+1 = Answer completely contradicts or fabricates information not in context
+2 = Answer almost entirely unsupported, with only minimal alignment
+3 = Answer mostly unsupported, with some minor alignment
+4 = Answer partially reflects context but includes several unsupported claims
+5 = Answer partially supported, but with notable unsupported additions
+6 = Answer mostly supported by context, but with some unsupported additions
+7 = Answer well supported, only minor unsupported details
+8 = Answer strongly supported, almost no unsupported information
+9 = Answer perfectly reflects context, with no unsupported additions
+10 = Answer is a flawless, complete reflection of context, with zero unsupported or contradictory information
 
 IMPORTANT: Return ONLY valid JSON with scores and explanations.
 Do not include any other text before or after the JSON."""
@@ -877,4 +1080,86 @@ def create_and_evaluate_dataset(
         
     except Exception as e:
         logger.error(f"Error in evaluation pipeline: {str(e)}")
+        raise
+
+def load_rag_benchmark_dataset(subset=None, num_samples=None, save_to_file=False):
+    """
+    Load the RAG benchmark dataset from Hugging Face and optionally save to JSON file.
+    
+    Args:
+        subset: Optional subset of data to return ('train', 'test', 'validation')
+        num_samples: Optional number of samples to return (returns all if None)
+        save_to_file: Boolean indicating whether to save dataset to JSON file
+    
+    Returns:
+        Dictionary containing dataset information and samples
+    """
+    try:
+        # Load dataset
+        dataset = load_dataset("neural-bridge/rag-dataset-12000")
+        logger.info("Successfully loaded RAG benchmark dataset")
+        available_splits = list(dataset.keys())
+
+        # Get specified split or all splits
+        if subset:
+            if subset not in available_splits:
+                raise ValueError(f"Invalid subset '{subset}'. Available: {available_splits}")
+            data = dataset[subset]
+        else:
+            # Combine all splits without raising error
+            data = {split: dataset[split] for split in available_splits}
+
+        # Convert to list and optionally limit samples
+        result = {}
+        
+        if isinstance(data, dict):
+            # Multiple splits
+            for split, split_data in data.items():
+                samples = split_data.to_pandas().to_dict('records')
+                if num_samples:
+                    samples = samples[:num_samples]
+                result[split] = samples
+        else:
+            # Single split
+            samples = data.to_pandas().to_dict('records')
+            if num_samples:
+                samples = samples[:num_samples]
+            result = samples
+
+        # Add metadata
+        metadata = {
+            "dataset": "neural-bridge/rag-dataset-12000",
+            "available_splits": available_splits,
+            "total_samples": len(samples) if not isinstance(data, dict) else {k: len(v) for k, v in result.items()},
+            "subset": subset if subset else "all",
+            "num_samples": num_samples if num_samples else "all",
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+
+        final_result = {
+            "metadata": metadata,
+            "data": result
+        }
+
+        # Save to JSON file if requested
+        if save_to_file:
+            # Create directory if it doesn't exist
+            output_dir = "benchmark_datasets"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Generate filename based on parameters
+            subset_str = subset if subset else "all"
+            samples_str = str(num_samples) if num_samples else "all"
+            filename = f"rag_benchmark_file.json"
+            filepath = os.path.join(output_dir, filename)
+            
+            # Save to JSON file
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(final_result, f, ensure_ascii=False, indent=2)
+            logger.info(f"Saved benchmark dataset to: {filepath}")
+
+        return final_result
+
+    except Exception as e:
+        logger.error(f"Error loading RAG benchmark dataset: {str(e)}")
         raise

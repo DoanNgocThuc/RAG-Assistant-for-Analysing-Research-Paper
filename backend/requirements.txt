@@ -5,3 +5,4 @@ pymupdf
 sentence-transformers
 faiss-cpu
 openai
+datasets

@@ -1,0 +1,270 @@
+{
+  "evaluations": [
+    {
+      "faithfulness_score": 8,
+      "explanation": "The answer is mostly supported by the context, but includes some minor unsupported additions. The key information about the purpose and scope of the Berry Export Summary 2028 is accurately reflected in the answer. However, there are a few phrases that add new information not explicitly stated in the context.",
+      "supported_claims": [
+        "The purpose of this plan is to grow their global presence over the next 10 years.",
+        "High-income countries across Europe, North America and Northern Asia have been identified as having a palate for Australian grown berries with more than 4244 tonnes of fresh berries exported in the last financial year alone."
+      ],
+      "unsupported_claims": [
+        "The strategy focuses heavily on growing the existing strawberry export market from 4 per cent to at least 8 per cent of national production by volume, in markets with a capacity and willingness to pay a premium for quality fruit.",
+        "We have a great product, we are hungry to expand trade and now with this new plan in place, we have a clear roadmap towards driving growth."
+      ],
+      "contradictions": [],
+      "question": "What is the Berry Export Summary 2028 and what is its purpose?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer mostly supports the provided context but includes some minor unsupported additions. The answer provides a clear and concise list of benefits reported from having access to Self-supply water sources, which is well-supported by the context.",
+      "supported_claims": [
+        "Benefits include convenience, less time spent for fetching water, access to more and better quality water; important added values such as water for productive use, income generation, family safety and improved food security"
+      ],
+      "unsupported_claims": [
+        "None found"
+      ],
+      "contradictions": [
+        "None"
+      ],
+      "question": "What are some of the benefits reported from having access to Self-supply water sources?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer mostly supports the provided context, but includes minor unsupported additions. The three unique features of Coolands for Twitter are well-supported by context: Real-Time updates without a refresh button, Avatar Indicator showing small avatars on the title bar for new messages, and Smart Bookmark returning to previous reading positions. However, Direct Link is not specifically mentioned in the context as an Android app feature, it seems like a general internet browsing feature. Additionally, User Level Notification allows customizable notification settings but does not specify if they are limited to only users you follow or all users.",
+      "supported_claims": [
+        "Real-Time updates without refresh button",
+        "Avatar Indicator showing small avatars on the title bar for new messages",
+        "Smart Bookmark returning to previous reading positions"
+      ],
+      "unsupported_claims": [
+        "Direct Link as a unique feature",
+        "User Level Notification limitations"
+      ],
+      "contradictions": [],
+      "question": "What are the unique features of the Coolands for Twitter app?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer mostly supports the context, but includes some minor unsupported additions. The main difference between NSS and IHDS is that NSS focused on consumption while IHDS is based on income.",
+      "supported_claims": [
+        "the NSS was showing consistently lower rates of growth and higher poverty",
+        "the IHDS revealed a higher level of inequality, similar to Latin American countries",
+        "India's population is more unequal but richer than previously thought"
+      ],
+      "unsupported_claims": [],
+      "contradictions": [],
+      "question": "What is the main difference between the National Sample Survey (NSS) and the India Human Development Survey (IHDS) in terms of measuring India's inequality?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer is mostly supported by the context, but includes some minor unsupported details. The answer accurately describes the sequence of events and the eventual outcome of the fight.",
+      "supported_claims": [
+        "Gunnar Nelson took his time on the feet against Zak Cummings tonight in the co-main event of UFC Fight Night 46",
+        "he pounced on it, taking his opponent to the mat, seizing his back and locking in the fight-ending choke almost effortlessly."
+      ],
+      "unsupported_claims": [],
+      "contradictions": [],
+      "question": "How did Gunnar Nelson win the fight against Zak Cummings at UFC Fight Night 46?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer is mostly supported by the context, but contains some minor unsupported additions. The key information about the features of Fabiana Filippi's shirts and blouses is well-presented, but the mention of specific cuts (classic, slim, over), lengths (up to maxi lines) and neck styles (Korean, V, round) may not be directly supported by the context.",
+      "supported_claims": [
+        "They are easily matched to different shapes, fabrics and colours",
+        "They come in silk and cotton",
+        "The union between feminine essence and everyday versatility redefines the language of elegance"
+      ],
+      "unsupported_claims": [
+        "classic, slim and over cuts",
+        "up to maxi lines",
+        "Korean, V, round necks"
+      ],
+      "contradictions": [],
+      "question": "What are some of the features of Fabiana Filippi's shirts and blouses?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer mostly reflects the provided context, as Dan Foley expresses his frustration about being portrayed negatively on the show. However, there are some minor unsupported additions, such as the statement 'How can you not have a tainted vision when you pull back the curtain and see that Oz is pulling on the levers?' which appears to be an unrelated personal opinion.",
+      "supported_claims": [
+        "Dan Foley expressed his frustration about being portrayed negatively on the show",
+        "He was surprised at how vitriolic the viewer response has been"
+      ],
+      "unsupported_claims": [
+        "How can you not have a tainted vision when you pull back the curtain and see that Oz is pulling on the levers?"
+      ],
+      "contradictions": [],
+      "question": "How did Dan Foley feel about his portrayal on the Survivor TV show?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer is mostly supported by the context, with no unsupported information that contradicts it. The only claim added is \"The Minimalist Baker's 30-Minute Portobello Mushroom Stir Fry\", which appears twice in the context.",
+      "supported_claims": [
+        "They will probably have the same thing for lunch: The New York Times’ Green Garlic Tabbouleh."
+      ],
+      "unsupported_claims": [
+        "The Minimalist Baker's 30-Minute Portobello Mushroom Stir Fry"
+      ],
+      "contradictions": [],
+      "question": "What is the lunch that Kim and Tony plan to have on Monday according to the context?"
+    },
+    {
+      "faithfulness_score": 10,
+      "explanation": "The answer is a direct quote from the provided context, stating that the comments section was shut down due to spam. This aligns perfectly with the context information.",
+      "supported_claims": [
+        "The comments section was shut down because the spam was getting out of control"
+      ],
+      "unsupported_claims": [],
+      "contradictions": [],
+      "question": "What is the reason for the closure of the comments section?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer is mostly supported by the context, but includes some minor unsupported additions. The five love and relationship podcasts mentioned are accurate and consistent with the provided text.",
+      "supported_claims": [
+        "The five love and relationship podcasts mentioned in the context are 'Love Is Like A Plant' with Sarah May Bates and Ellen Huerta, 'Relationships! Let's Talk About It' with Pripo Teplitsky, 'Unqualified' with Anna Faris, 'Confessions of a Terrible Husband' with Nick Pavlidis, and 'Savage Lovecast' with Dan Savage.",
+        "The text provides accurate descriptions of each podcast, including their hosts and topics."
+      ],
+      "unsupported_claims": [
+        "None found"
+      ],
+      "contradictions": [
+        "None found"
+      ],
+      "question": "What are the five love and relationship podcasts mentioned in the context?"
+    },
+    {
+      "faithfulness_score": 8,
+      "explanation": "The answer partially reflects the context, specifically stating the two teams that dropped out of the race (Team Utah and Team xxTreme US) and their reasons for doing so. However, it also includes minor unsupported details, such as the composition of Team xxTreme US (largely comprised of Navy SEALs), which is not directly mentioned in the context.",
+      "supported_claims": [
+        "The two teams that dropped out of the Primal Quest Utah race were Team Utah and Team xxTreme US.",
+        "Team Utah quit due to blisters and exhaustion.",
+        "Team xxTreme US had to withdraw due to injury."
+      ],
+      "unsupported_claims": [
+        "The composition of Team xxTreme US (largely comprised of Navy SEALs)"
+      ],
+      "contradictions": [],
+      "question": "Which two teams dropped out of the Primal Quest Utah race and what were their reasons for doing so?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer is mostly supported by the context, but includes some minor additions. The user provides a personal anecdote and quotes to illustrate their perception of writing as a courageous act, which aligns with the context provided. However, there are some unsupported claims made in the answer, such as the idea that writing is not a risk to the writer, and the notion that agents and editors are just businessmen. These additions do not significantly detract from the overall faithfulness of the answer.",
+      "supported_claims": [
+        "The word 'quantum' means a quantity or amount",
+        "A portion",
+        "A large amount",
+        "The smallest amount of something that can exist independently"
+      ],
+      "unsupported_claims": [
+        "Writing is not a risk to the writer",
+        "Agents and editors are just businessmen"
+      ],
+      "contradictions": [],
+      "question": "What does the word 'quantum' mean as per the context?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer mostly reflects the provided context, mentioning the purpose of the riser mount and its features. However, it does not explicitly mention 'We Ship Fast!' or Order by 1PM CST for Same Day Shipping (Mon-Fri) as part of the answer's content.",
+      "supported_claims": [
+        "The TRUGLO Picatinny Riser Mount is great for raining your red dot sight 1/2″ to be at",
+        "This aluminum riser is easy to install and"
+      ],
+      "unsupported_claims": [
+        "great for any flattop AR-15."
+      ],
+      "contradictions": [],
+      "question": "What is the purpose of the TRUGLO Picatinny Riser Mount?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer is partially supported by the context, but with some minor unsupported details. The answer only states that attendees under $35 million in assets pay $495, which aligns well with the provided context information. However, it does not mention the promotional code requirement for the discount, which could be considered an unsupported detail.",
+      "supported_claims": [
+        "$495 each attendee from credit unions under $35 million in assets"
+      ],
+      "unsupported_claims": [
+        "Promotional code 'GACSMALL' and automatic discount calculation"
+      ],
+      "contradictions": [],
+      "question": "What is the cost for credit union attendees under $35 million in assets to attend the conference?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer directly reflects the goal stated in the context, which is to banish material that could be viewed as offensive to Muslims. However, it doesn't provide additional information beyond what's provided in the context.",
+      "supported_claims": [
+        "The goal was to banish any material that could be viewed as offensive to Muslims"
+      ],
+      "unsupported_claims": [],
+      "contradictions": [],
+      "question": "What was the goal of the purge of training material regarding Islamic terrorism from law enforcement training under President Barack Obama's administration?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer is a flawless reflection of the provided context, as it correctly identifies Adam Thirlwell as the author of the book Kapow! The only minor detail that could be considered unsupported is the enthusiastic tone of the website's language about the book, but this does not detract from the overall accuracy and faithfulness of the answer.",
+      "supported_claims": [
+        "The answer states Adam Thirlwell as the author of the book Kapow!",
+        "All claims in the answer are consistent with the provided context information"
+      ],
+      "unsupported_claims": [],
+      "contradictions": [],
+      "question": "Who is the author of the book Kapow!?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer is mostly supported by the context, but with one minor addition. The claim 'rose beryl' is a variation of 'pink emerald', which is supported in the context. However, the answer does not mention 'pink emerald' as a separate entity, it mentions 'pink emerald' as one of the names for Morganite. The answer also does not discuss metaphysical properties or the gem's powers like the provided text.",
+      "supported_claims": [
+        "Morganite is also known as 'pink emerald'"
+      ],
+      "unsupported_claims": [],
+      "contradictions": [],
+      "question": "What are some of the names Morganite is also known as?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer provides a clear and concise explanation of the purpose of recycling concrete in construction, aligning well with the provided context. The answer partially supports the concept but includes some minor unsupported claims about reducing costs and using recycled materials as aggregate. There are no significant contradictions or fabrications found in the answer.",
+      "supported_claims": [
+        "reutilizing construction waste into new concrete",
+        "preserving landfill space"
+      ],
+      "unsupported_claims": [
+        "reduce construction costs"
+      ],
+      "contradictions": [],
+      "question": "What is the purpose of recycling concrete in construction?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer accurately states the features of the Womens Drew Argo Black Smooth Leather sandal, including its adjustable strap, smooth uppers, and removable cork footbed with memory foam. The only minor addition is the description of the toe shape, which could be clarified to match the context of a shoe's design.",
+      "supported_claims": [
+        "features an adjustable strap",
+        "smooth uppers",
+        "double depth thick removable cork footbed with memory foam",
+        "tempered steel shank",
+        "broad, oblique toe shape"
+      ],
+      "unsupported_claims": [],
+      "contradictions": [],
+      "question": "What are some features of the Womens Drew Argo Black Smooth Leather sandal?"
+    },
+    {
+      "faithfulness_score": 9,
+      "explanation": "The answer mostly reflects the context, mentioning joining the SPJ Austin Student Chapter as a means to deepen journalistic knowledge and connect with professionals. However, it does not elaborate on the benefits of attending events or any other specific details that could be supported by the provided context.",
+      "supported_claims": [
+        "Joining the SPJ Austin Student Chapter allows students to deepen their journalistic knowledge",
+        "The chapter connects students with professionals in the industry"
+      ],
+      "unsupported_claims": [
+        "attending various events"
+      ],
+      "contradictions": [],
+      "question": "What are some of the benefits of joining the SPJ Austin Student Chapter?"
+    }
+  ],
+  "statistics": {
+    "total_pairs": 20,
+    "evaluated_pairs": 20,
+    "average_faithfulness": 8.95,
+    "max_score": 10,
+    "min_score": 8
+  },
+  "timestamp": "2025-08-25 14:47:03"
+}
