@@ -19,8 +19,8 @@ os.makedirs(EMBEDDINGS_DIR, exist_ok=True)
 # --- Helpers: chunking ----------------------------------------------------
 def chunk_text(text: str, max_chars: int = 2000, overlap: int = 200):
     """
-    Chunk text by characters (naive) but with overlap.
-    We use characters because tokenizers differ per model; this is simple and safe for MVP.
+    Chunk text into overlapping windows by character length.
+    Ensures forward progress to avoid infinite loops.
     """
     print("Chunking text...")
     if not text:
@@ -28,51 +28,82 @@ def chunk_text(text: str, max_chars: int = 2000, overlap: int = 200):
     chunks = []
     start = 0
     length = len(text)
+
     while start < length:
         end = min(start + max_chars, length)
         chunks.append(text[start:end])
-        # advance: keep overlap
-        start = max(end - overlap, end)
+
+        # advance start while keeping overlap
+        if end == length:  # reached end, stop
+            break
+        start = end - overlap
+        if start < 0:  # safety
+            start = 0
+        if start >= end:  # safety against infinite loop
+            start = end
     return chunks
 
+
 # --- Ollama embedding helper ----------------------------------------------
-def embed_with_ollama(texts: List[str]) -> np.ndarray:
-    """
-    Query Ollama embeddings endpoint with a list of texts and return array shape (n, dim) float32.
-    Uses the /api/embeddings endpoint with payload: {"model": EMBED_MODEL_NAME, "input": texts}
-    """
-    print("Embedding text with Ollama...")
+def embed_with_ollama(texts: List[str], retries: int = 3, timeout: int = 120) -> np.ndarray:
+    print(f"Embedding {len(texts)} texts with Ollama...")
     if not isinstance(texts, list):
         texts = [texts]
+    if not texts:
+        raise RuntimeError("No texts provided for embedding")
 
-    payload = {"model": EMBED_MODEL_NAME, "input": texts}
+    expected_dim = 768  # Default dimension for nomic-embed-text
+    embeddings = []
+
+    for i, text in enumerate(texts):
+        print(f"Processing text {i+1}/{len(texts)} (length: {len(text)} chars)")
+        embedding = None
+        attempt = 0
+        while attempt < retries:
+            try:
+                payload = {"model": EMBED_MODEL_NAME, "prompt": text}
+                print(f"Sending payload for text {i+1}: {payload}")
+                r = requests.post(OLLAMA_EMBED_ENDPOINT, json=payload, timeout=timeout)
+                r.raise_for_status()
+                data = r.json()
+                print(f"Ollama embeddings response for text {i+1}: {data}")
+                
+                if isinstance(data, dict) and "embedding" in data and data["embedding"]:
+                    embedding = data["embedding"]
+                elif isinstance(data, dict) and "embeddings" in data and data["embeddings"]:
+                    embedding = data["embeddings"][0]
+                else:
+                    print(f"Unexpected response format for text {i+1}: {data}")
+                    embedding = None
+                break
+            except requests.exceptions.RequestException as e:
+                print(f"Embedding attempt {attempt + 1} failed for text {i+1}: {e}, Response: {r.text if 'r' in locals() else 'No response'}")
+                attempt += 1
+                if attempt == retries:
+                    print(f"Failed to embed text {i+1} after {retries} attempts, using zero vector")
+                    embedding = [0.0] * expected_dim
+                time.sleep(1)
+
+        if not embedding or len(embedding) != expected_dim:
+            print(f"Invalid embedding for text {i+1}, using zero vector")
+            embeddings.append([0.0] * expected_dim)
+        else:
+            embeddings.append(embedding)
+
     try:
-        r = requests.post(OLLAMA_EMBED_ENDPOINT, json=payload, timeout=60)
-        r.raise_for_status()
-    except Exception as e:
-        raise RuntimeError(f"Ollama embeddings request failed: {e}")
+        arr = np.array(embeddings, dtype="float32")
+    except ValueError as e:
+        print(f"NumPy array creation failed: {e}, ensuring consistent dimensions")
+        embeddings = [emb if len(emb) == expected_dim else [0.0] * expected_dim for emb in embeddings]
+        arr = np.array(embeddings, dtype="float32")
 
-    data = r.json()
-    # expected: data contains "embeddings" or for single item maybe "embedding"
-    # We handle common shapes
-    if isinstance(data, dict) and "embeddings" in data:
-        embs = data["embeddings"]
-    elif isinstance(data, list):
-        # sometimes the API returns list of dicts
-        # e.g. [{"embedding": [...]}, ...]
-        embs = []
-        for item in data:
-            if isinstance(item, dict) and "embedding" in item:
-                embs.append(item["embedding"])
-            else:
-                # attempt to treat item as raw vector
-                embs.append(item)
-    elif isinstance(data, dict) and "embedding" in data:
-        embs = [data["embedding"]]
-    else:
-        raise RuntimeError(f"Unexpected embeddings response from Ollama: {data}")
-
-    arr = np.array(embs, dtype="float32")
+    print(f"Generated embeddings shape: {arr.shape}")
+    if arr.shape[0] != len(texts):
+        raise RuntimeError(f"Invalid number of embeddings: expected {len(texts)}, got {arr.shape[0]}")
+    if arr.shape[1] != expected_dim:
+        raise RuntimeError(f"Invalid embedding dimension: expected {expected_dim}, got {arr.shape[1]}")
+    if np.any(np.isnan(arr)) or np.any(np.all(arr == 0, axis=1)):
+        print("Warning: Invalid embeddings detected (NaN or zero vectors)")
     return arr
 
 # --- Ollama text generation helper ---------------------------------------
@@ -90,12 +121,12 @@ def generate_with_ollama(system_prompt: str, user_prompt: str, max_tokens: int =
         "stream": False
     }
     try:
-        r = requests.post(OLLAMA_GEN_ENDPOINT, json=payload, timeout=120)
+        r = requests.post(OLLAMA_GEN_ENDPOINT, json=payload, timeout=300)
         r.raise_for_status()  # Raises HTTPError for bad status codes (e.g., 4xx, 5xx)
     except requests.exceptions.ConnectionError as e:
         raise RuntimeError(f"Failed to connect to Ollama server at {OLLAMA_GEN_ENDPOINT}: {e}")
     except requests.exceptions.Timeout as e:
-        raise RuntimeError(f"Ollama request timed out after 120 seconds: {e}")
+        raise RuntimeError(f"Ollama request timed out after 300 seconds: {e}")
     except requests.exceptions.HTTPError as e:
         raise RuntimeError(f"Ollama HTTP error: {e} - Response: {r.text}")
     except requests.exceptions.RequestException as e:
@@ -201,15 +232,12 @@ def retrieve_top_k(question: str, pdf_path: str, k: int = 3):
     if q_emb.dtype != np.float32:
         q_emb = q_emb.astype("float32")
     D, I = index.search(q_emb, k)
-    seen_pages = set()
     results = []
     for idx in I[0]:
         text = meta["texts"][idx]
         md = meta["metadatas"][idx]
         page = md["page"]
-        if page not in seen_pages:  # only take the first chunk from each page
-            seen_pages.add(page)
-            results.append({"text": text, "metadata": md})
+        results.append({"text": text, "metadata": md})
     return results
 
 # --- System prompt builder ------------------------------------------------

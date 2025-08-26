@@ -26,6 +26,7 @@ def parse_pdf(path: str):
 
         # Join block text with proper line breaks
         text = "\n".join(b[4] for b in blocks if b[4].strip())
+        print(f"Page {i+1}: {len(text)} characters extracted")
 
         # Extract formulas
         formulas = formula_pattern.findall(text)
