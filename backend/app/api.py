@@ -2,23 +2,24 @@
 import os
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException,Query
 from fastapi.responses import JSONResponse, FileResponse  
-from app.rag.pipeline import process_question, ensure_index_for_pdf
-from app.pdf.extract import parse_pdf
-from app.rag.pipeline import generate_eval_dataset_from_pdf
-from app.rag.pipeline import convert_json_to_qa_list
-from app.rag.pipeline import add_contexts_to_qa_pairs
-from app.rag.pipeline import create_evaluation_dataset
-from app.rag.pipeline import evaluate_faithfulness
-from app.rag.pipeline import evaluate_answer_relevance
-from app.rag.pipeline import create_and_evaluate_dataset
+from app.rag.pipeline import (
+    process_question, 
+    ensure_index_for_pdf,
+    convert_json_to_qa_list,
+    evaluate_faithfulness,
+    evaluate_answer_relevance,
+    get_candidate_chunks,
+    get_relevant_chunks,
+    calculate_chunk_precision
+)
 from app.rag.pipeline import load_rag_benchmark_dataset
+from app.pdf.extract import parse_pdf
 import requests
 from pathlib import Path
-import json
-from pydantic import BaseModel
 from typing import List, Optional
 
 import logging
+
 # Add at top of file with other imports
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -91,70 +92,6 @@ async def ask_question(
     print("Trying to generate asked question...")
     answer, sources = process_question(question, mode, pdf_path, k=k)
     return JSONResponse({"answer": answer, "sources": sources})
-
-@router.post("/generate_eval")
-async def generate_eval_dataset_api(
-    pdf_filename: str = Form(...),
-    num_samples: int = Form(...),
-    num_iterations: int = Form(...),
-    output_dir: str = Form("eval_outputs"),
-):
-    pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
-    if not os.path.exists(pdf_path):
-        raise HTTPException(status_code=404, detail="PDF not found on server")
-
-    # Call the pipeline function to generate evaluation dataset
-    result = generate_eval_dataset_from_pdf(pdf_path, num_samples=num_samples, num_iterations=num_iterations, output_dir=output_dir)
-    return {"message": "Evaluation dataset generated successfully", "result": result}
-
-
-@router.get("/qac_list/{pdf_filename}")
-async def get_qac_list(pdf_filename: str):
-    try:
-        # Sanitize filename to prevent path traversal
-        filename = Path(pdf_filename).name
-        
-        # Construct path to eval json file
-        eval_file = os.path.join("eval_outputs", f"{filename}.eval.json")
-        logger.debug(f"Looking for eval file at: {eval_file}")
-        
-        if not os.path.exists(eval_file):
-            logger.error(f"Eval file not found: {eval_file}")
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Evaluation data not found for PDF: {filename}"
-            )
-        
-        # Use the convert function to get QA list
-        try:
-            qa_list = convert_json_to_qa_list(eval_file)
-            logger.debug(f"Successfully loaded QA list with {len(qa_list)} items")
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON parsing error: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail="Error parsing evaluation data JSON"
-            )
-        
-        # Convert tuples to dictionaries for JSON response
-        formatted_list = [
-            {
-                "question": q,
-                "answer": a,
-                "context": c
-            }
-            for q, a, c in qa_list
-        ]
-        
-        return {"qa_pairs": formatted_list}
-        
-    except Exception as e:
-        logger.exception("Unexpected error in get_qac_list")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing evaluation data: {str(e)}"
-        )
-
 
 
 @router.get("/context")
@@ -229,113 +166,11 @@ async def delete_pdf(filename: str):
     
     return response
 
-    
-
-@router.post("/create_evaluation")
-async def create_evaluation_endpoint(
-    pdf_filename: str = Form(...),
-    num_samples: int = Form(5),
-    num_iterations: int = Form(2),
-    k_contexts: int = Form(1),
-    output_dir: str = Form("eval_outputs")
-):
-    """
-    Create complete evaluation dataset including generated QA pairs with contexts.
-    
-    Args:
-        pdf_filename: Name of the PDF file to evaluate
-        num_samples: Number of QA pairs to generate per iteration (default: 5)
-        num_iterations: Number of generation iterations (default: 2)
-        k_contexts: Number of contexts to retrieve per question (default: 3)
-        output_dir: Directory to save evaluation results (default: eval_outputs)
-    
-    Returns:
-        Dictionary containing:
-        - original_pairs: Generated QA pairs
-        - enriched_pairs: QA pairs with retrieved contexts
-        - stats: Generation and retrieval statistics
-    """
-    try:
-        # Input validation
-        if num_samples < 1 or num_samples > 20:
-            raise HTTPException(
-                status_code=400,
-                detail="num_samples must be between 1 and 20"
-            )
-            
-        if num_iterations < 1 or num_iterations > 5:
-            raise HTTPException(
-                status_code=400,
-                detail="num_iterations must be between 1 and 5"
-            )
-            
-        if k_contexts < 1 or k_contexts > 5:
-            raise HTTPException(
-                status_code=400,
-                detail="k_contexts must be between 1 and 5"
-            )
-
-        # Validate PDF exists
-        pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
-        if not os.path.exists(pdf_path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"PDF file {pdf_filename} not found in uploads directory"
-            )
-            
-        # Ensure output directory exists
-        os.makedirs(output_dir, exist_ok=True)
         
-        # Check if evaluation file already exists
-        eval_file = os.path.join(output_dir, f"{pdf_filename}.eval.json")
-        if os.path.exists(eval_file):
-            logger.info(f"Existing evaluation found for {pdf_filename}")
-        
-        logger.info(f"Starting evaluation for {pdf_filename} with {num_samples} samples x {num_iterations} iterations")
-            
-        # Run evaluation pipeline
-        result = create_evaluation_dataset(
-            pdf_path=pdf_path,
-            num_samples=num_samples,
-            num_iterations=num_iterations,
-            k_contexts=k_contexts,
-            output_dir=output_dir
-        )
-        
-        # Add metadata to response
-        response = {
-            "pdf": pdf_filename,
-            "parameters": {
-                "num_samples": num_samples,
-                "num_iterations": num_iterations,
-                "k_contexts": k_contexts
-            },
-            "output_file": eval_file,
-            "results": result
-        }
-        
-        logger.info(f"Successfully created evaluation dataset for {pdf_filename}")
-        return response
-        
-    except HTTPException:
-        raise
-    except ValueError as e:
-        logger.error(f"Validation error: {str(e)}")
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.exception("Unexpected error creating evaluation dataset")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing request: {str(e)}"
-        )
-    
 @router.post("/evaluate_faithfulness_from_file")
 async def evaluate_faithfulness_from_file(
     filename: str = Form(...),
-    output_dir: str = Form("evaluation_scores")
+    output_dir: str = Form("benchmark_datasets")
 ):
     """
     Evaluate faithfulness using QA pairs from a JSON file.
@@ -432,90 +267,10 @@ async def evaluate_relevance_from_file(
             detail=f"Error processing request: {str(e)}"
         )
     
-
-@router.post("/create_evaluate_rag")
-async def create_evaluate_rag_endpoint(
-    pdf_filename: str = Form(...),
-    num_samples: int = Form(5),
-    num_iterations: int = Form(2),
-    k_contexts: int = Form(1),
-    output_dir: str = Form("eval_outputs")
-):
-    """
-    Complete pipeline to generate QA pairs and evaluate their faithfulness.
-    
-    Args:
-        pdf_filename: Name of the PDF file to evaluate
-        num_samples: Number of QA pairs to generate per iteration (default: 5)
-        num_iterations: Number of generation iterations (default: 2)
-        k_contexts: Number of contexts per question (default: 3)
-        output_dir: Directory to save results (default: eval_outputs)
-    """
-    try:
-        # Input validation
-        if num_samples < 1 or num_samples > 20:
-            raise HTTPException(
-                status_code=400,
-                detail="num_samples must be between 1 and 20"
-            )
-            
-        if num_iterations < 1 or num_iterations > 5:
-            raise HTTPException(
-                status_code=400,
-                detail="num_iterations must be between 1 and 5"
-            )
-            
-        if k_contexts < 1 or k_contexts > 5:
-            raise HTTPException(
-                status_code=400,
-                detail="k_contexts must be between 1 and 5"
-            )
-
-        # Validate PDF exists
-        pdf_path = os.path.join("uploads", pdf_filename)
-        if not os.path.exists(pdf_path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"PDF file {pdf_filename} not found"
-            )
-            
-        # Run complete pipeline
-        results = create_and_evaluate_dataset(
-            pdf_path=pdf_path,
-            num_samples=num_samples,
-            num_iterations=num_iterations,
-            k_contexts=k_contexts,
-            output_dir=output_dir
-        )
-        
-        # Return summarized results
-        return {
-            "message": "Evaluation completed successfully",
-            "pdf": results["pdf"],
-            "stats": {
-                "total_pairs": results["generation_stats"]["total_pairs"],
-                "average_faithfulness": results["evaluation_stats"]["average_faithfulness"],
-                "min_score": results["evaluation_stats"]["min_score"],
-                "max_score": results["evaluation_stats"]["max_score"]
-            },
-            "output_files": results["files"],
-            "qa_pairs": results["qa_pairs"]
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Error in evaluation pipeline")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing request: {str(e)}"
-        )
-    
-
 @router.post("/benchmark_dataset")
 async def get_benchmark_dataset(
     subset: Optional[str] = "train",  # Default to train split
-    num_samples: Optional[int] = 20,  # Default to 20 records
+    num_samples: Optional[int] = 10,  # Default to 1 record
     save_to_file: bool = True  # Default to save file
 ):
     try:

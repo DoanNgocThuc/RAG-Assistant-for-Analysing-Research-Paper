@@ -2,283 +2,143 @@
   "evaluations": [
     {
       "relevance_score": 8,
-      "explanation": "The answer directly addresses what was asked, providing a clear overview of the Berry Export Summary 2028 and its purpose. The information is relevant to the question and covers most aspects of it. However, the answer does not delve deeply into details or specific data points related to the export plan.",
+      "explanation": "The answer directly addresses both parts of the question: it explains what the Berry Export Summary 2028 is and its purpose. The response includes necessary information but does not delve into specifics, as the question was about general information.",
       "addressed_aspects": [
-        "What is the Berry Export Summary 2028?",
-        "what is its purpose"
+        "Purpose",
+        "General overview"
       ],
       "missing_aspects": [
-        "Details on how the plan will achieve its goals",
-        "Specific data points or statistics related to the export plan"
+        "Specific details about the export plan's content",
+        "Details about how it will be implemented"
       ],
       "off_topic_content": [],
       "question": "What is the Berry Export Summary 2028 and what is its purpose?"
     },
     {
-      "relevance_score": 8,
-      "explanation": "The answer directly addresses what was asked about benefits reported from having access to Self-supply water sources, but misses the aspect of convenience being a benefit as a 'less time spent for fetching water' statement. It also includes some off-topic information like \"water for productive use\", which although related, isn't exactly the main focus of the question.",
+      "relevance_score": 9,
+      "explanation": "The answer directly addresses the specific question, mentioning benefits such as convenience, quality water, and added values like productive use and food security. However, it could be more focused on the main point of self-supply water sources.",
       "addressed_aspects": [
-        "Benefits reported from having access to Self-supply water sources"
+        "convenience",
+        "quality water",
+        "productive use",
+        "income generation",
+        "family safety",
+        "food security"
       ],
-      "missing_aspects": [
-        "Convenience as a benefit, and 'family safety' aspect while not entirely off topic does feel a bit tangential"
-      ],
-      "off_topic_content": [
-        "\"water for productive use\", \"income generation\""
-      ],
+      "missing_aspects": [],
+      "off_topic_content": [],
       "question": "What are some of the benefits reported from having access to Self-supply water sources?"
     },
     {
       "relevance_score": 9,
-      "explanation": "The answer directly addresses all unique features of the Coolands for Twitter app, providing a clear list of its notable features. There is no off-topic information included, and the focus is well on what was asked.",
+      "explanation": "The answer directly addresses all main points of the question, including key features like Real-Time updates, Avatar Indicator, and User Level Notification. The only minor criticism is that 'Direct Link for intuitive and convenient link opening' could be more specific about what kind of links it refers to.",
       "addressed_aspects": [
         "Real-Time updates",
         "Avatar Indicator",
-        "Direct Link",
         "Smart Bookmark",
         "User Level Notification"
       ],
-      "missing_aspects": [
-        "None"
-      ],
-      "off_topic_content": [
-        "None"
-      ],
+      "missing_aspects": [],
+      "off_topic_content": [],
       "question": "What are the unique features of the Coolands for Twitter app?"
     },
     {
-      "relevance_score": 8,
-      "explanation": "The answer directly addresses the main difference between the NSS and IHDS in measuring India's inequality, covering both consumption and income aspects. However, it also includes information on growth rates and poverty levels, which are not directly relevant to the question.",
+      "relevance_score": 9,
+      "explanation": "The answer directly addresses the main difference between NSS and IHDS in measuring India's inequality, with a clear comparison of their focuses (consumption vs income) and results (lower poverty rates vs higher inequality). The answer could be more focused on providing a single, concise answer to the question.",
       "addressed_aspects": [
-        "the focus of each survey (consumption vs income)"
+        "measuring India's inequality",
+        "NSS focus",
+        "IHDS focus",
+        "difference between NSS and IHDS"
       ],
-      "missing_aspects": [
-        "the methodology used for data collection"
-      ],
-      "off_topic_content": [
-        "growth rates and poverty levels"
-      ],
+      "missing_aspects": [],
+      "off_topic_content": [],
       "question": "What is the main difference between the National Sample Survey (NSS) and the India Human Development Survey (IHDS) in terms of measuring India's inequality?"
     },
     {
       "relevance_score": 9,
-      "explanation": "The answer directly addresses the main point of how Gunnar Nelson won against Zak Cummings, but could be more focused on specific details.",
+      "explanation": "The answer directly addresses how Gunnar Nelson won the fight against Zak Cummings at UFC Fight Night 46, providing a clear description of the victory. The information about the opponent being taken to the mat and locked in a rear-naked choke is relevant to the question.",
       "addressed_aspects": [
-        "Method of victory",
-        "Timing of victory"
+        "Specific details of the fight",
+        "The method of victory"
       ],
-      "missing_aspects": [
-        "Specific details about the opponent's actions or preparation"
-      ],
+      "missing_aspects": [],
       "off_topic_content": [],
       "question": "How did Gunnar Nelson win the fight against Zak Cummings at UFC Fight Night 46?"
     },
     {
-      "relevance_score": 8,
-      "explanation": "The answer is mostly relevant to the question, as it lists various features and styles of Fabiana Filippi's shirts and blouses. However, it could be more focused on specific details that directly address the question.",
+      "relevance_score": 9,
+      "explanation": "The answer directly addresses most aspects of Fabiana Filippi's shirts and blouses, including their features (shapes, fabrics, colors, cuts), styles, lengths, and suitability for wear. The only aspect not fully covered is the material's versatility beyond what was mentioned.",
       "addressed_aspects": [
-        "Features",
-        "styles"
+        "Shapes",
+        "Fabrics",
+        "Colors",
+        "Cuts",
+        "Styles",
+        "Lengths",
+        "Suitability"
       ],
       "missing_aspects": [
-        "Prices",
-        "Materials availability",
-        "Specific occasions for wearing"
+        "Material versatility beyond mentioned materials"
       ],
-      "off_topic_content": [
-        "Availability in men’s cut"
-      ],
+      "off_topic_content": [],
       "question": "What are some of the features of Fabiana Filippi's shirts and blouses?"
     },
     {
-      "relevance_score": 8,
-      "explanation": "The answer directly addresses the question by stating Dan Foley's feelings about his portrayal on Survivor, but it could be more focused as it mentions additional information about viewer response.",
+      "relevance_score": 9,
+      "explanation": "The answer directly addresses Dan Foley's feelings about his portrayal on Survivor, stating he was portrayed negatively and how viewers responded. However, the answer does not specifically cover all aspects of his feelings towards being portrayed.",
       "addressed_aspects": [
-        "Dan Foley's feelings about his portrayal"
+        "Dan Foley's negative portrayal",
+        "Viewer response to his portrayal"
       ],
       "missing_aspects": [
-        "Why he was portrayed in this way"
+        "Specific reasons why Dan Foley felt frustrated with his portrayal"
       ],
       "off_topic_content": [],
       "question": "How did Dan Foley feel about his portrayal on the Survivor TV show?"
     },
     {
-      "relevance_score": 3,
-      "explanation": "The answer partially addresses the question but misses key aspects, as it doesn't mention who Kim and Tony are or what 'Monday' refers to.",
-      "addressed_aspects": [
-        "The lunch plan"
-      ],
+      "relevance_score": 1,
+      "explanation": "The answer does not directly address what was asked about Kim and Tony's lunch plan on Monday.",
+      "addressed_aspects": [],
       "missing_aspects": [
-        "The names of the people planning the meal (Kim and Tony), the day of the week (Monday)"
+        "What the specific lunch Kim and Tony plan to have on Monday"
       ],
-      "off_topic_content": [],
+      "off_topic_content": [
+        "The New York Times', 'Green Garlic Tabbouleh', which is unrelated to the question"
+      ],
       "question": "What is the lunch that Kim and Tony plan to have on Monday according to the context?"
     },
     {
       "relevance_score": 9,
-      "explanation": "The answer directly addresses the reason for the closure of the comments section, but it does not provide additional context or details about how this issue was resolved.",
+      "explanation": "The answer directly addresses the reason for the closure, but does not mention other potential reasons such as moderation issues or technical problems.",
       "addressed_aspects": [
-        "Reason for the closure of the comments section"
+        "reason for the closure"
       ],
       "missing_aspects": [
-        "Additional context or details on the resolution of the issue"
+        "other potential reasons",
+        "moderation issues",
+        "technical problems"
       ],
       "off_topic_content": [],
       "question": "What is the reason for the closure of the comments section?"
     },
     {
       "relevance_score": 9,
-      "explanation": "The answer directly addresses the specific question by listing all five love and relationship podcasts mentioned in the context. However, it lacks a detailed explanation of what makes these podcasts relevant to their respective topics.",
+      "explanation": "The answer directly addresses the specific question asked by listing all five love and relationship podcasts mentioned in the context. There is no unnecessary or off-topic information, and all aspects of the question are covered.",
       "addressed_aspects": [
-        "List aspects of the question that were addressed",
-        "the titles of the podcasts"
+        "List of podcast names"
       ],
       "missing_aspects": [],
       "off_topic_content": [],
       "question": "What are the five love and relationship podcasts mentioned in the context?"
-    },
-    {
-      "relevance_score": 8,
-      "explanation": "The answer directly addresses the teams that dropped out of the Primal Quest Utah race and provides specific reasons for their withdrawal, but it doesn't specifically mention what Team xxTreme US's reason for dropping out was.",
-      "addressed_aspects": [
-        "Teams that dropped out",
-        "Reasons for dropping out"
-      ],
-      "missing_aspects": [
-        "Specific reason for Team xxTreme US to drop out"
-      ],
-      "off_topic_content": [],
-      "question": "Which two teams dropped out of the Primal Quest Utah race and what were their reasons for doing so?"
-    },
-    {
-      "relevance_score": 8,
-      "explanation": "The answer directly addresses the meaning of 'quantum' as a context-specific term, focusing on its definition and scope. However, it does not provide further clarification on how this meaning applies to the specific question.",
-      "addressed_aspects": [
-        "meaning",
-        "definition"
-      ],
-      "missing_aspects": [
-        "contextual application",
-        "specific usage"
-      ],
-      "off_topic_content": [],
-      "question": "What does the word 'quantum' mean as per the context?"
-    },
-    {
-      "relevance_score": 9,
-      "explanation": "The answer directly addresses the main purpose of the TRUGLO Picatinny Riser Mount, which is to adjust the height of a red dot sight for an ideal cheek weld.",
-      "addressed_aspects": [
-        "the proper height for an ideal cheek weld"
-      ],
-      "missing_aspects": [
-        "the specific application or context in which the riser mount is used"
-      ],
-      "off_topic_content": [],
-      "question": "What is the purpose of the TRUGLO Picatinny Riser Mount?"
-    },
-    {
-      "relevance_score": 9,
-      "explanation": "The answer directly states the cost for credit union attendees under $35 million in assets to attend the conference, but does not elaborate on other aspects such as registration details or payment methods.",
-      "addressed_aspects": [
-        "cost",
-        "attendees"
-      ],
-      "missing_aspects": [
-        "registration details",
-        "payment methods"
-      ],
-      "off_topic_content": [],
-      "question": "What is the cost for credit union attendees under $35 million in assets to attend the conference?"
-    },
-    {
-      "relevance_score": 4,
-      "explanation": "The answer partially addresses the question but misses key aspects. It directly mentions a goal, but doesn't explicitly mention President Barack Obama's administration or provide details about how the purge affected law enforcement training.",
-      "addressed_aspects": [
-        "goal of the purge"
-      ],
-      "missing_aspects": [
-        "President Barack Obama's administration",
-        "law enforcement training",
-        "details on how the purge impacted training"
-      ],
-      "off_topic_content": [],
-      "question": "What was the goal of the purge of training material regarding Islamic terrorism from law enforcement training under President Barack Obama's administration?"
-    },
-    {
-      "relevance_score": 9,
-      "explanation": "The answer directly identifies the author of the book Kapow!, but could be more precise.",
-      "addressed_aspects": [
-        "author of the book",
-        "Kapow!"
-      ],
-      "missing_aspects": [
-        "title of the book"
-      ],
-      "off_topic_content": [],
-      "question": "Who is the author of the book Kapow!?"
-    },
-    {
-      "relevance_score": 9,
-      "explanation": "The answer directly addresses the names Morganite is also known as and provides two relevant names.",
-      "addressed_aspects": [
-        "names Morganite is also known as"
-      ],
-      "missing_aspects": [],
-      "off_topic_content": [],
-      "question": "What are some of the names Morganite is also known as?"
-    },
-    {
-      "relevance_score": 9,
-      "explanation": "The answer directly addresses the main purpose of recycling concrete in construction, but could be more focused on its benefits and advantages.",
-      "addressed_aspects": [
-        "Purpose of recycling concrete in construction",
-        "Benefits of recycling concrete"
-      ],
-      "missing_aspects": [
-        "Costs associated with recycling concrete",
-        "Environmental impact of recycling concrete"
-      ],
-      "off_topic_content": [],
-      "question": "What is the purpose of recycling concrete in construction?"
-    },
-    {
-      "relevance_score": 9,
-      "explanation": "The answer directly addresses several key features mentioned in the question, such as adjustable strap, smooth uppers, cork footbed, and shank. However, it lacks a mention of the 'black' color and 'smooth leather' aspects which could be considered minor details.",
-      "addressed_aspects": [
-        "adjustable strap",
-        "smooth uppers",
-        "double depth thick removable cork footbed with memory foam",
-        "tempered steel shank",
-        "broad, oblique toe shape"
-      ],
-      "missing_aspects": [
-        "color (black)",
-        "material (smooth leather)"
-      ],
-      "off_topic_content": [],
-      "question": "What are some features of the Womens Drew Argo Black Smooth Leather sandal?"
-    },
-    {
-      "relevance_score": 8,
-      "explanation": "The answer directly addresses the specific question by listing three benefits of joining the SPJ Austin Student Chapter: gaining journalistic knowledge, connecting with professionals, and attending events. However, it does not specifically mention personal growth or networking opportunities, which might be aspects that a student is interested in knowing about.",
-      "addressed_aspects": [
-        "gaining journalistic knowledge",
-        "connecting with professionals",
-        "attending events"
-      ],
-      "missing_aspects": [
-        "personal growth",
-        "networking opportunities"
-      ],
-      "off_topic_content": [],
-      "question": "What are some of the benefits of joining the SPJ Austin Student Chapter?"
     }
   ],
   "statistics": {
-    "total_pairs": 20,
-    "evaluated_pairs": 20,
-    "average_relevance": 8.05,
+    "total_pairs": 10,
+    "evaluated_pairs": 10,
+    "average_relevance": 8.1,
     "max_score": 9,
-    "min_score": 3
+    "min_score": 1
   }
 }
