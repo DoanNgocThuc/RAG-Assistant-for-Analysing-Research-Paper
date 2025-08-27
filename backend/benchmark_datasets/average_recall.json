@@ -1,0 +1,76 @@
+{
+  "average_recall": 0.9,
+  "details": [
+    {
+      "question": "Trình bày phương trình dao động điều hòa, ý nghĩa các đại lượng trong đó và công thức tính chu kỳ dao động của con lắc lò xo.",
+      "relevant_chunk_ids": [
+        1,
+        2,
+        3,
+        0
+      ],
+      "groundtruth_chunks": [
+        0,
+        1
+      ],
+      "recall": 1.0
+    },
+    {
+      "question": "Phương trình sóng cơ học điều hòa có dạng thế nào và các đặc trưng của sóng cơ học gồm những gì?",
+      "relevant_chunk_ids": [
+        2,
+        3,
+        0,
+        4
+      ],
+      "groundtruth_chunks": [
+        2
+      ],
+      "recall": 1.0
+    },
+    {
+      "question": "Nêu điều kiện để xuất hiện cực đại và cực tiểu trong hiện tượng giao thoa sóng.",
+      "relevant_chunk_ids": [
+        3,
+        2,
+        0
+      ],
+      "groundtruth_chunks": [
+        3,
+        4
+      ],
+      "recall": 0.5
+    },
+    {
+      "question": "Mô tả sự hình thành sóng dừng, phương trình sóng dừng và cách xác định vị trí nút, bụng.",
+      "relevant_chunk_ids": [
+        4,
+        2,
+        6,
+        0,
+        1,
+        3
+      ],
+      "groundtruth_chunks": [
+        4
+      ],
+      "recall": 1.0
+    },
+    {
+      "question": "Sóng âm có dải tần số cảm nhận được bao nhiêu, công thức tính cường độ âm và mức cường độ âm là gì?",
+      "relevant_chunk_ids": [
+        3,
+        6,
+        2,
+        5,
+        1,
+        0
+      ],
+      "groundtruth_chunks": [
+        5,
+        6
+      ],
+      "recall": 1.0
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "average_precision": 0.792,
+  "details": [
+    {
+      "question": "Thay thế số lý thuyết bằng phép tính",
+      "precision": 1.0,
+      "avg_vector_similarity": 0.875,
+      "avg_relevance_score": 7.667,
+      "total_candidates": 3,
+      "total_relevant": 3
+    },
+    {
+      "question": "Biện độ sóng và biên độ dao động tổng hợp",
+      "precision": 0.0,
+      "avg_vector_similarity": 1.0,
+      "avg_relevance_score": 0.0,
+      "total_candidates": 1,
+      "total_relevant": 0
+    },
+    {
+      "question": "Đề xuất phương trình sóng dừng và giải thích ý nghĩa của các nút sóng và bụng sóng?",
+      "precision": 1.0,
+      "avg_vector_similarity": 0.728,
+      "avg_relevance_score": 8.0,
+      "total_candidates": 4,
+      "total_relevant": 4
+    },
+    {
+      "question": "Xác định dải tần số mà con người có thể cảm nhận được trong âm thanh.",
+      "precision": 1.0,
+      "avg_vector_similarity": 0.89,
+      "avg_relevance_score": 8.0,
+      "total_candidates": 4,
+      "total_relevant": 4
+    },
+    {
+      "question": "Mức cường độ chuẩn ngưỡng cảm nhận của tai người là gì?",
+      "precision": 0.75,
+      "avg_vector_similarity": 0.809,
+      "avg_relevance_score": 7.0,
+      "total_candidates": 4,
+      "total_relevant": 3
+    },
+    {
+      "question": "Sóng âm có ứng dụng nào khác ngoài y học, quân sự và âm nhạc?",
+      "precision": 1.0,
+      "avg_vector_similarity": 0.927,
+      "avg_relevance_score": 8.0,
+      "total_candidates": 2,
+      "total_relevant": 2
+    }
+  ]
+}

@@ -805,7 +805,31 @@ def load_rag_benchmark_dataset(subset=None, num_samples=None, save_to_file=False
         logger.error(f"Error loading RAG benchmark dataset: {str(e)}")
         raise
 
-def get_candidate_chunks(question: str, pdf_path: str, similarity_threshold: float = 0.5) -> List[Dict]:
+def extract_json_from_response(response: str):
+    # Tìm đoạn nằm trong ```json ... ```
+    match = re.search(r'```json\s*([\s\S]*?)\s*```', response)
+    if match:
+        json_str = match.group(1)
+    else:
+        # Tìm array hoặc object đầu tiên
+        start_obj = response.find('{')
+        start_arr = response.find('[')
+        if start_arr != -1 and (start_obj == -1 or start_arr < start_obj):
+            # Ưu tiên array nếu xuất hiện trước
+            end_arr = response.rfind(']')
+            if end_arr == -1:
+                raise ValueError("Không tìm thấy JSON array trong response")
+            json_str = response[start_arr:end_arr+1]
+        elif start_obj != -1:
+            end_obj = response.rfind('}')
+            if end_obj == -1:
+                raise ValueError("Không tìm thấy JSON object trong response")
+            json_str = response[start_obj:end_obj+1]
+        else:
+            raise ValueError("Không tìm thấy JSON object hoặc array trong response")
+    return json.loads(json_str)
+
+def get_candidate_chunks_from_question_and_context(question: str, pdf_path: str, similarity_threshold: float = 0.5) -> List[Dict]:
     """
     Bước 1: Lấy ra các đoạn văn ứng viên dựa trên vector similarity
     
@@ -821,6 +845,7 @@ def get_candidate_chunks(question: str, pdf_path: str, similarity_threshold: flo
     index, meta = _load_index(pdf_path)
 
     logger.info(f"Index loaded with {index.ntotal} vectors")
+    logger.info(f"Index: {index}")
     logger.info(f"Metadata: {meta}")
     q_emb = embed_with_ollama([question])
 
@@ -835,6 +860,7 @@ def get_candidate_chunks(question: str, pdf_path: str, similarity_threshold: flo
     logger.info(f"Distances: {D}")
     logger.info(f"Indices: {I}")
 
+
     if D is None or I is None or len(D) == 0 or len(I) == 0:
         logger.warning("No valid search results found.")
         return []
@@ -842,33 +868,41 @@ def get_candidate_chunks(question: str, pdf_path: str, similarity_threshold: flo
         logger.warning("Unexpected search result lengths.")
         return []
     # 3. Chuyển distances thành similarities
+    min_distance = min(D[0])
     max_distance = max(D[0])
-    similarities = [1 - (d / max_distance) for d in D[0]]
-    
+    if max_distance == min_distance:
+        similarities = [1.0 for _ in D[0]]
+    else:
+        similarities = [1 - ((d - min_distance) / (max_distance - min_distance)) for d in D[0]]
+    logger.info(f"Similarities (min-max): {similarities}")
+
+
     # 4. Lọc chunks có similarity >= threshold
     candidates = []
-    seen_pages = set()
     
+
+    logger.info(f"I[0]: {I[0]}")
+
     for idx, similarity in zip(I[0], similarities):
+        logger.info(f"Đang xem xét Chunk {idx} similarity: {similarity}")
         if similarity < similarity_threshold:
+            logger.info(f"Chunk {idx} rejected: {similarity}")
             continue
             
         text = meta["texts"][idx]
         md = meta["metadatas"][idx]
-        page = md["page"]
-        
-        if page not in seen_pages:  # Tránh trùng lặp trang
-            candidates.append({
-                "text": text,
-                "metadata": md,
-                "vector_similarity": similarity
-            })
-            seen_pages.add(page)
-    
+        md["chunk_id"] = int(idx)
+
+        candidates.append({
+            "text": text,
+            "metadata": md,
+            "vector_similarity": float(similarity)  # chuyển về float
+        })
+
     print(f"Bước 1: Tìm thấy {len(candidates)} đoạn văn ứng viên")
     return candidates
 
-def evaluate_context_relevance(question: str, context: str) -> Dict:
+def evaluate_context_relevance_from_question_and_context(question: str, context: str) -> Dict:
     """
     Đánh giá mức độ liên quan giữa câu hỏi và đoạn văn bản.
     
@@ -917,8 +951,9 @@ Phân tích:
 
     try:
         result = generate_with_ollama(system_prompt, user_prompt)
-        evaluation = json.loads(result)
-        
+        evaluation = extract_json_from_response(result)
+        logger.debug(f"Parsed JSON for relevance evaluation: {evaluation}...")
+
         # Đảm bảo có đầy đủ các trường
         if "relevance_score" not in evaluation:
             evaluation["relevance_score"] = 1
@@ -940,7 +975,7 @@ Phân tích:
             "key_matches": []
         }
 
-def get_relevant_chunks(question: str, candidates: List[Dict], relevance_threshold: float = 7.0) -> List[Dict]:
+def get_relevant_chunks_from_question_and_context(question: str, candidates: List[Dict], relevance_threshold: float = 9.0) -> List[Dict]:
     """
     Bước 2: Đánh giá và lọc ra các đoạn văn thực sự liên quan
     
@@ -957,7 +992,7 @@ def get_relevant_chunks(question: str, candidates: List[Dict], relevance_thresho
     for chunk in candidates:
         try:
             # Đánh giá bằng LLM
-            relevance = evaluate_context_relevance(question, chunk["text"])
+            relevance = evaluate_context_relevance_from_question_and_context(question, chunk["text"])
             relevance_score = relevance.get("relevance_score", 0)
             
             # Chỉ giữ lại các đoạn có điểm >= threshold
@@ -975,9 +1010,10 @@ def get_relevant_chunks(question: str, candidates: List[Dict], relevance_thresho
             continue
     
     # Sắp xếp theo điểm relevance
-    relevant_chunks.sort(key=lambda x: x["relevance_score"], reverse=True)
-    
-    print(f"Bước 2: Tìm thấy {len(relevant_chunks)} đoạn văn thực sự liên quan")
+    # relevant_chunks.sort(key=lambda x: x["relevance_score"], reverse=True)
+
+    print(f"Bước 2: Tìm thấy {len(relevant_chunks)} đoạn văn thực sự liên quan cho câu hỏi: {question}")
+    logger.info(f"Relevant chunks: {relevant_chunks}")
     return relevant_chunks
 
 def calculate_chunk_precision(candidates: List[Dict], relevant_chunks: List[Dict]) -> Dict:
@@ -1003,12 +1039,197 @@ def calculate_chunk_precision(candidates: List[Dict], relevant_chunks: List[Dict
     
     return {
         "metrics": {
-            "precision": round(precision, 3),
-            "avg_vector_similarity": round(avg_similarity, 3),
-            "avg_relevance_score": round(avg_relevance, 3)
+        "precision": float(round(precision, 3)),
+        "avg_vector_similarity": float(round(avg_similarity, 3)),
+        "avg_relevance_score": float(round(avg_relevance, 3))
         },
         "counts": {
             "total_candidates": total_candidates,
             "total_relevant": total_relevant
         }
     }
+
+def generate_questions_list_from_pdf(
+    pdf_path: str,
+    max_chunks_per_page: int = 5
+) -> List[str]:
+    """
+    Trả về danh sách câu hỏi, mỗi phần tử là một string câu hỏi.
+    Định dạng LLM trả về phải là JSON array, ví dụ:
+    [
+        {"question": "Câu hỏi 1"},
+        {"question": "Câu hỏi 2"}
+    ]
+    hoặc
+    [
+        "Câu hỏi 1",
+        "Câu hỏi 2"
+    ]
+    """
+    pages = parse_pdf(pdf_path)
+    all_questions = []
+
+    for page in pages:
+        page_text = page["text"]
+        page_num = page["page"]
+
+        chunks = chunk_text(page_text)
+        selected_chunks = chunks[:max_chunks_per_page]
+        content = "\n".join(selected_chunks)
+
+        system_prompt = (
+            "Bạn là chuyên gia tạo câu hỏi đọc hiểu cho tài liệu nghiên cứu.\n"
+            "Hãy sinh ra đúng 2 câu hỏi đọc hiểu phù hợp nhất với nội dung bên dưới.\n"
+            "Trả về kết quả dưới dạng JSON array, mỗi phần tử là object có trường 'question'.\n"
+            "Ví dụ: [{\"question\": \"...\"}, {\"question\": \"...\"}]\n"
+            "Chỉ trả về JSON, không thêm giải thích hoặc text bên ngoài.\n"
+        )
+        user_prompt = f"Nội dung trang {page_num}:\n{content}\n\nHãy sinh ra đúng 2 câu hỏi đọc hiểu phù hợp nhất với nội dung trên."
+
+        llm_result = generate_with_ollama(system_prompt, user_prompt)
+        logger.info(f"LLM raw output for page {page_num}:\n{llm_result}")
+        try:
+            questions_list = extract_json_from_response(llm_result)
+            if isinstance(questions_list, list):
+                for q in questions_list:
+                    if isinstance(q, dict) and "question" in q:
+                        all_questions.append(q["question"])
+                    elif isinstance(q, str):
+                        all_questions.append(q)
+            elif isinstance(questions_list, dict) and "question" in questions_list:
+                all_questions.append(questions_list["question"])
+        except Exception as e:
+            print(f"Lỗi parse JSON từ LLM cho trang {page_num}: {e}")
+            print(f"LLM raw output:\n{llm_result}")
+            continue
+
+    logger.info(f"Tổng số câu hỏi sinh ra: {len(all_questions)}")
+
+    return all_questions
+
+
+def calculate_average_precision_for_questions(
+    questions: List[str],
+    pdf_path: str,
+    similarity_threshold: float = 0.5,
+    relevance_threshold: float = 7.0
+) -> Dict:
+    """
+    Tính precision trung bình cho một danh sách các câu hỏi.
+
+    Args:
+        questions: Danh sách câu hỏi
+        pdf_path: Đường dẫn tới file PDF
+        similarity_threshold: Ngưỡng similarity để lọc ứng viên
+        relevance_threshold: Ngưỡng relevance để lọc đoạn liên quan
+
+    Returns:
+        Dict chứa precision trung bình và các thống kê cho từng câu hỏi
+    """
+    results = []
+    for question in questions:
+        candidates = get_candidate_chunks_from_question_and_context(question, pdf_path, similarity_threshold)
+        relevant_chunks = get_relevant_chunks_from_question_and_context(question, candidates, relevance_threshold)
+        metrics = calculate_chunk_precision(candidates, relevant_chunks)
+        results.append({
+            "question": question,
+            "precision": metrics["metrics"]["precision"],
+            "avg_vector_similarity": metrics["metrics"]["avg_vector_similarity"],
+            "avg_relevance_score": metrics["metrics"]["avg_relevance_score"],
+            "total_candidates": metrics["counts"]["total_candidates"],
+            "total_relevant": metrics["counts"]["total_relevant"]
+        })
+
+    avg_precision = sum(r["precision"] for r in results) / len(results) if results else 0
+
+    output = {
+        "average_precision": round(avg_precision, 3),
+        "details": results
+    }
+
+    # Lưu kết quả ra file
+    import os
+    import json
+    os.makedirs("benchmark_datasets", exist_ok=True)
+    filename = f"average_precision.json"
+    filepath = os.path.join("benchmark_datasets", filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
+
+    print(f"Đã lưu kết quả average precision vào {filepath}")
+
+    return output
+
+
+def show_pdf_chunks(pdf_path: str):
+    """
+    Hiển thị danh sách các chunk đã được index từ file PDF, gồm nội dung, số trang và chunk_id.
+    """
+    index, meta = _load_index(pdf_path)
+    print(f"PDF: {pdf_path}")
+    print(f"Tổng số chunk: {len(meta['texts'])}")
+    for i, (text, md) in enumerate(zip(meta["texts"], meta["metadatas"])):
+        print(f"Chunk {i} | Page {md.get('page', 'N/A')} | Chunk ID {md.get('chunk_id', 'N/A')}")
+        print(text)
+        print("-" * 40)
+
+
+
+def calculate_average_recall_for_questions(
+    questions: List[str],
+    pdf_path: str,
+    groundtruth_chunks_list: List[List[int]],
+    similarity_threshold: float = 0.5,
+    relevance_threshold: float = 7.0
+) -> Dict:
+    """
+    Tính recall trung bình cho một danh sách các câu hỏi.
+
+    Args:
+        questions: Danh sách câu hỏi
+        pdf_path: Đường dẫn tới file PDF
+        groundtruth_chunks_list: Danh sách các chunk groundtruth cho từng câu hỏi
+        similarity_threshold: Ngưỡng similarity để lọc ứng viên
+        relevance_threshold: Ngưỡng relevance để lọc đoạn liên quan
+
+    Returns:
+        Dict chứa recall trung bình và các thống kê cho từng câu hỏi
+    """
+    results = []
+    recalls = []
+    for idx, question in enumerate(questions):
+        candidates = get_candidate_chunks_from_question_and_context(question, pdf_path, similarity_threshold)
+        relevant_chunks = get_relevant_chunks_from_question_and_context(question, candidates, relevance_threshold)
+        relevant_chunk_ids = [chunk["metadata"]["chunk_id"] for chunk in relevant_chunks]
+        groundtruth_chunks = groundtruth_chunks_list[idx]
+        # Tính recall
+        true_positive = len(set(relevant_chunk_ids) & set(groundtruth_chunks))
+        total_groundtruth = len(set(groundtruth_chunks))
+        recall = true_positive / total_groundtruth if total_groundtruth > 0 else 0
+        recalls.append(recall)
+        results.append({
+            "question": question,
+            "relevant_chunk_ids": relevant_chunk_ids,
+            "groundtruth_chunks": groundtruth_chunks,
+            "recall": round(recall, 3)
+        })
+
+    avg_recall = sum(recalls) / len(recalls) if recalls else 0
+
+    output = {
+        "average_recall": round(avg_recall, 3),
+        "details": results
+    }
+
+    # Lưu kết quả ra file
+    import os
+    import json
+    os.makedirs("benchmark_datasets", exist_ok=True)
+    filename = f"average_recall.json"
+    filepath = os.path.join("benchmark_datasets", filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
+
+    print(f"Đã lưu kết quả average recall vào {filepath}")
+
+    return output

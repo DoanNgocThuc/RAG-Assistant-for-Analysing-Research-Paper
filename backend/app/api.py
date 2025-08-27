@@ -1,23 +1,25 @@
 # api.py
 import os
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException,Query
-from fastapi.responses import JSONResponse, FileResponse  
+from fastapi.responses import JSONResponse, FileResponse
+from sympy import re  
 from app.rag.pipeline import (
     process_question, 
     ensure_index_for_pdf,
     convert_json_to_qa_list,
     evaluate_faithfulness,
     evaluate_answer_relevance,
-    get_candidate_chunks,
-    get_relevant_chunks,
-    calculate_chunk_precision
+    get_candidate_chunks_from_question_and_context,
+    get_relevant_chunks_from_question_and_context,
+    calculate_chunk_precision,
 )
 from app.rag.pipeline import load_rag_benchmark_dataset
 from app.pdf.extract import parse_pdf
 import requests
 from pathlib import Path
 from typing import List, Optional
-
+from pydantic import BaseModel
+import json
 import logging
 
 # Add at top of file with other imports
@@ -280,3 +282,138 @@ async def get_benchmark_dataset(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+class CandidateRequest(BaseModel):
+    question: str
+    pdf_path: str
+    similarity_threshold: float = 0.5
+
+class RelevantRequest(BaseModel):
+    question: str
+    candidates: List[dict]
+    relevance_threshold: float = 7.0
+
+class PrecisionRequest(BaseModel):
+    candidates: List[dict]
+    relevant_chunks: List[dict]
+
+@router.post("/get_candidate_chunks")
+def api_get_candidate_chunks(req: CandidateRequest):
+    result = get_candidate_chunks_from_question_and_context(
+        req.question,
+        req.pdf_path,
+        req.similarity_threshold
+    )
+    return {"candidates": result}
+
+@router.post("/get_relevant_chunks")
+def api_get_relevant_chunks(req: RelevantRequest):
+    result = get_relevant_chunks_from_question_and_context(
+        req.question,
+        req.candidates,
+        req.relevance_threshold
+    )
+    return {"relevant_chunks": result}
+
+@router.post("/calculate_chunk_precision")
+def api_calculate_chunk_precision(req: PrecisionRequest):
+    result = calculate_chunk_precision(
+        req.candidates,
+        req.relevant_chunks
+    )
+    return result
+
+class AveragePrecisionRequest(BaseModel):
+    pdf_path: str
+    similarity_threshold: float = 0.5
+    relevance_threshold: float = 9.0
+    max_chunks_per_page: int = 5
+
+@router.post("/average_precision_from_pdf")
+def average_precision_from_pdf(req: AveragePrecisionRequest):
+    from app.rag.pipeline import generate_questions_list_from_pdf, calculate_average_precision_for_questions
+
+    # Sinh danh sách câu hỏi từ PDF
+    questions = generate_questions_list_from_pdf(
+        pdf_path=req.pdf_path,
+        max_chunks_per_page=req.max_chunks_per_page
+    )
+
+    # Tính average precision
+    result = calculate_average_precision_for_questions(
+        questions,
+        req.pdf_path,
+        req.similarity_threshold,
+        req.relevance_threshold
+    )
+    return result
+
+class GenerateQuestionsRequest(BaseModel):
+    pdf_path: str
+    max_chunks_per_page: int = 5
+
+@router.get("/generate_questions_from_pdf")
+def generate_questions_from_pdf_api(req: GenerateQuestionsRequest):
+    from app.rag.pipeline import generate_questions_list_from_pdf
+    try:
+        questions = generate_questions_list_from_pdf(
+            pdf_path=req.pdf_path,
+            max_chunks_per_page=req.max_chunks_per_page
+        )
+        return {"questions": questions, "total": len(questions)}
+    except Exception as e:
+        return {"error": str(e)}
+    
+
+class ShowChunksRequest(BaseModel):
+    pdf_path: str
+
+@router.get("/show_pdf_chunks")
+def show_pdf_chunks_api(req: ShowChunksRequest):
+    from app.rag.pipeline import _load_index
+    try:
+        index, meta = _load_index(req.pdf_path)
+        chunks = []
+        for i, (text, md) in enumerate(zip(meta["texts"], meta["metadatas"])):
+            chunks.append({
+                "chunk_id": i,
+                "page": md.get("page", "N/A"),
+                "chunk_id_in_page": md.get("chunk_id", "N/A"),
+                "text": text
+            })
+        return {"total_chunks": len(chunks), "chunks": chunks}
+    except Exception as e:
+        return {"error": str(e)}
+    
+
+class AverageRecallRequest(BaseModel):
+    pdf_path: str
+    similarity_threshold: float = 0.2
+    relevance_threshold: float = 7.0
+    max_chunks_per_page: int = 5
+
+@router.post("/average_recall_from_pdf")
+def average_recall_from_pdf(req: AverageRecallRequest):
+    from app.rag.pipeline import calculate_average_recall_for_questions
+    groundtruth_path = "benchmark_datasets/question_groundtruth.json"
+    if not os.path.exists(groundtruth_path):
+        return {"error": f"File {groundtruth_path} not found"}
+    with open(groundtruth_path, "r", encoding="utf-8") as f:
+        content = f.read()
+        if not content.strip():
+            return {"error": "Groundtruth file is empty"}
+        try:
+            groundtruth_data = json.loads(content)
+            questions = [item["question"] for item in groundtruth_data]
+            groundtruth_chunks_list = [item["groundtruth_chunks"] for item in groundtruth_data]
+            result = calculate_average_recall_for_questions(
+                questions,
+                req.pdf_path,
+                groundtruth_chunks_list,
+                req.similarity_threshold,
+                req.relevance_threshold
+            )
+        except Exception as e:
+            return {"error": f"JSON decode error: {str(e)}"}
+    return result
