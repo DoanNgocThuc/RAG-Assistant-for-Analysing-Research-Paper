@@ -5,6 +5,7 @@ from typing import List
 import requests
 import numpy as np
 import faiss
+from app.pdf.extract import parse_pdf
 
 # Local Ollama endpoints and models
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
@@ -173,7 +174,6 @@ def ensure_index_for_pdf(pdf_path: str, pages: List[dict] = None):
         return idx_path
 
     # parse pdf if pages not provided
-    from app.pdf.extract import parse_pdf
     if pages is None:
         pages = parse_pdf(pdf_path)
 
@@ -300,9 +300,32 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
 # Optional utility: get full page content for UI 'Show context'
 def get_page_text(pdf_path: str, page_number: int):
     print("Getting full page text...")
-    from app.pdf.extract import parse_pdf
     pages = parse_pdf(pdf_path)
     for p in pages:
         if p["page"] == page_number:
             return p
     return None
+
+# Get all formulas from the PDF
+def get_formulas(pdf_path: str):
+    print(f"Extracting formulas from {pdf_path}...")
+    if not os.path.exists(pdf_path):
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+    try:
+        pages = parse_pdf(pdf_path)
+        if not pages:
+            print("No pages extracted from PDF")
+            return []
+        formulas = []
+        for p in pages:
+            page_num = p.get("page")
+            page_formulas = p.get("formulas", [])
+            print(f"Page {page_num}: Found {len(page_formulas)} formulas")
+            for f in page_formulas:
+                if f and isinstance(f, str):  # Ensure formula is non-empty string
+                    formulas.append({"page": page_num, "formula": f.strip()})
+        print(f"Total formulas extracted: {len(formulas)}")
+        return formulas
+    except Exception as e:
+        print(f"Error in get_formulas: {str(e)}")
+        raise

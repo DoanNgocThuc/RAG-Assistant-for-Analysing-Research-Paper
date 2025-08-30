@@ -1,5 +1,35 @@
 import fitz  # PyMuPDF
 import re
+import unicodedata
+
+# Regex for LaTeX-like formulas
+LATEX_PATTERN = re.compile(
+    r"(?<!\\)\$\$(.+?)(?<!\\)\$\$"   # $$...$$
+    r"|(?<!\\)\$(.+?)(?<!\\)\$"      # $...$
+    r"|\\\[(.+?)\\\]",               # \[...\]
+    re.S
+)
+
+MATH_OPS = r"=+\-−*/×÷^_<>≤≥≈≠∝∑∏√∫∞∂∇%|"
+MATH_OPS_REGEX = re.compile(rf"[{re.escape(MATH_OPS)}]")
+DIGIT_REGEX = re.compile(r"\d")
+LETTER_REGEX = re.compile(r"[A-Za-z\u0370-\u03FF]")  # Latin + Greek
+
+def normalize(s: str) -> str:
+    s = unicodedata.normalize("NFKC", s)
+    s = s.replace("\u2212", "-")  # Unicode minus → ASCII
+    s = s.replace("\u2009", " ").replace("\u202F", " ").replace("\u00A0", " ")
+    s = re.sub(r"\s+", " ", s)
+    return s.strip()
+
+def is_formula(line: str) -> bool:
+    if not line or len(line) < 3:
+        return False
+    if not MATH_OPS_REGEX.search(line):
+        return False
+    if not (DIGIT_REGEX.search(line) and LETTER_REGEX.search(line)):
+        return False
+    return True
 
 def parse_pdf(path: str):
     try:
@@ -9,63 +39,59 @@ def parse_pdf(path: str):
 
     pages = []
 
-    # Original regex for LaTeX-like formulas (ignores escaped \$)
-    formula_pattern = re.compile(
-        r"(?<!\\)\$\$(.+?)(?<!\\)\$\$"  # $$...$$
-        r"|(?<!\\)\$(.+?)(?<!\\)\$"     # $...$
-        r"|\\\[(.+?)\\\]",              # \[...\]
-        re.S
-    )
-
-    # Regex for Unicode math characters
-    unicode_math_char_pattern = re.compile(
-        r"[\u0370-\u03FF\u2100-\u214F\u2190-\u21FF\u2200-\u22FF\u2300-\u23FF\u25A0-\u25FF"
-        r"\u27C0-\u27EF\u27F0-\u27FF\u2900-\u297F\u2980-\u29FF\u2A00-\u2AFF\u2B00-\u2BFF"
-        r"\u1D400-\u1D7FF\u1EE00-\u1EEFF\u20D0-\u20FF]",
-        re.UNICODE
-    )
-
     for i, page in enumerate(doc):
-        # Use "blocks" mode for better text fidelity
-        blocks = page.get_text("blocks")
+        # ---------- Try rawdict extraction ----------
+        lines = []
+        raw = page.get_text("rawdict")
+        for block in raw.get("blocks", []):
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines", []):
+                spans = []
+                for span in line.get("spans", []):
+                    txt = span.get("text")
+                    if isinstance(txt, str) and txt.strip():
+                        spans.append(txt)
+                if spans:
+                    line_text = normalize("".join(spans))
+                    if line_text:
+                        lines.append(line_text)
 
-        # Sort blocks by vertical, then horizontal position
-        blocks = sorted(blocks, key=lambda b: (round(b[1], 1), round(b[0], 1)))
+        # ---------- Fallback if rawdict gave nothing ----------
+        if not lines:
+            blocks = page.get_text("blocks")
+            blocks = sorted(blocks, key=lambda b: (round(b[1], 1), round(b[0], 1)))
+            lines = [normalize(b[4]) for b in blocks if isinstance(b[4], str) and b[4].strip()]
 
-        # Join block text with proper line breaks
-        text = "\n".join(b[4] for b in blocks if b[4].strip())
-        print(f"Page {i+1}: {len(text)} characters extracted")
+        page_text = "\n".join(lines)
+        print(f"Page {i+1}: {len(page_text)} characters extracted")
 
-        # Extract LaTeX formulas (original)
-        latex_formulas = formula_pattern.findall(text)
+        # ---------- Extract formulas ----------
+        formulas = []
 
-        # Flatten tuple results (filter out empty matches)
-        latex_formulas = [next((g for g in t if g), None) for t in latex_formulas]
-        latex_formulas = [f for f in latex_formulas if f]  # remove None/empty
+        # LaTeX-like
+        latex_hits = LATEX_PATTERN.findall(page_text)
+        latex_hits = [next((g for g in t if g), None) for t in latex_hits]
+        latex_hits = [normalize(f) for f in latex_hits if f]
+        formulas.extend(latex_hits)
 
-        # New: Extract Unicode math formulas by processing lines
-        lines = text.split("\n")
-        unicode_formulas = []
-        current_formula = []
+        # Unicode/inline math
         for line in lines:
-            line_strip = line.strip()
-            if line_strip and unicode_math_char_pattern.search(line_strip) and len(line_strip) < 50:
-                current_formula.append(line_strip)
-            else:
-                if current_formula:
-                    unicode_formulas.append(" ".join(current_formula))
-                    current_formula = []
-        if current_formula:
-            unicode_formulas.append(" ".join(current_formula))
+            if is_formula(line):
+                formulas.append(line)
 
-        # Combine both types of formulas, deduplicate if needed
-        all_formulas = latex_formulas + unicode_formulas
-        all_formulas = list(set(all_formulas))  # Optional: remove duplicates if overlap occurs
+        # Deduplicate
+        seen, unique = set(), []
+        for f in formulas:
+            key = re.sub(r"\s+", "", f)
+            if key not in seen:
+                seen.add(key)
+                unique.append(f)
 
         pages.append({
             "page": i + 1,
-            "text": text,
-            "formulas": all_formulas
+            "text": page_text,
+            "formulas": unique
         })
 
     return pages

@@ -2,7 +2,7 @@
 import os
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse, FileResponse  
-from app.rag.pipeline import process_question, ensure_index_for_pdf
+from app.rag.pipeline import process_question, ensure_index_for_pdf, get_formulas
 from app.pdf.extract import parse_pdf
 import requests
 from pathlib import Path
@@ -146,3 +146,11 @@ async def delete_pdf(filename: str):
         response["message"] = "No files were deleted"
     
     return response
+
+@router.get("/formulas")
+def formulas(pdf_filename: str):
+    pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)  # Adjust path
+    try:
+        return {"formulas": get_formulas(pdf_path)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

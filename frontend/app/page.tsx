@@ -1,4 +1,3 @@
-// page.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -23,6 +22,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Upload,
   Moon,
   Sun,
@@ -32,6 +37,7 @@ import {
   MessageSquare,
   Trash2,
   Plus,
+  FunctionSquare,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -53,6 +59,11 @@ interface ChatSession {
   lastActive: Date;
 }
 
+interface Formula {
+  page: number;
+  formula: string;
+}
+
 const API_BASE_URL = "http://localhost:8000";
 
 export default function ResearchPaperChat() {
@@ -66,6 +77,12 @@ export default function ResearchPaperChat() {
   const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">(
     "Novice"
   );
+  const [isFormulaSheetOpen, setIsFormulaSheetOpen] = useState(false);
+  const [formulas, setFormulas] = useState<Formula[]>([]);
+  const [selectedFormula, setSelectedFormula] = useState<Formula | null>(null);
+  const [explanation, setExplanation] = useState<string>("");
+  const [isExplanationLoading, setIsExplanationLoading] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { theme, setTheme } = useTheme();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -115,8 +132,6 @@ export default function ResearchPaperChat() {
     if (pdfFile) {
       const url = URL.createObjectURL(pdfFile);
       setPdfUrl(url);
-
-      // cleanup khi đổi file hoặc unmount
       return () => URL.revokeObjectURL(url);
     } else {
       setPdfUrl(null);
@@ -293,7 +308,6 @@ export default function ResearchPaperChat() {
     if (session) {
       setIsLoading(true);
       try {
-        // Call backend to delete PDF and associated files
         const response = await fetch(
           `${API_BASE_URL}/delete_pdf/${encodeURIComponent(session.fileName)}`,
           {
@@ -305,7 +319,6 @@ export default function ResearchPaperChat() {
           throw new Error(errorData.detail || `HTTP error ${response.status}`);
         }
         const data = await response.json();
-        // Show toast notification (or fallback to alert)
         toast?.(data.message);
       } catch (error: any) {
         console.error("Error deleting session:", error);
@@ -324,7 +337,6 @@ export default function ResearchPaperChat() {
       }
     }
 
-    // Update chat sessions
     setChatSessions((prev) =>
       prev.filter((session) => session.id !== sessionId)
     );
@@ -362,6 +374,51 @@ export default function ResearchPaperChat() {
     } catch (error: any) {
       alert(`Error fetching context: ${error.message}`);
       return null;
+    }
+  };
+
+  const handleOpenFormulaInsight = async () => {
+    if (!activeChat || !pdfFile) return;
+    setIsFormulaSheetOpen(true);
+    if (formulas.length > 0) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/formulas?pdf_filename=${encodeURIComponent(activeChat.fileName)}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch formulas");
+      }
+      const data = await response.json();
+      setFormulas(data.formulas || []);
+    } catch (error) {
+      toast.error("Error fetching formulas from the paper.");
+    }
+  };
+
+  const handleFormulaClick = async (formula: Formula) => {
+    setSelectedFormula(formula);
+    setIsDialogOpen(true);
+    setIsExplanationLoading(true);
+    setExplanation("");
+
+    try {
+      const params = new URLSearchParams({
+        question: `Explain the variables and meaning of this formula from page ${formula.page}: ${formula.formula}`,
+        mode: mode,
+        pdf_filename: activeChat?.fileName || "",
+        k: "5",
+      });
+      const response = await fetch(`${API_BASE_URL}/ask?${params}`);
+      if (!response.ok) {
+        throw new Error("Failed to generate explanation");
+      }
+      const data = await response.json();
+      setExplanation(data.answer);
+    } catch (error) {
+      setExplanation("Error generating explanation. Please try again.");
+    } finally {
+      setIsExplanationLoading(false);
     }
   };
 
@@ -540,15 +597,28 @@ export default function ResearchPaperChat() {
           {/* PDF Card Section */}
           <Card className="flex flex-col max-h-full">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Research Paper
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Research Paper
+                </span>
                 {activeChat && (
                   <Badge variant="outline" className="ml-auto">
                     Active Chat
                   </Badge>
                 )}
               </CardTitle>
+              {pdfFile && (
+                <Button
+                  variant="outline"
+                  className="mt-2 gap-2"
+                  onClick={handleOpenFormulaInsight}
+                  disabled={isLoading}
+                >
+                  <FunctionSquare className="h-4 w-4" />
+                  Formula Insights
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden">
               <ScrollArea className="h-full pr-3">
@@ -768,6 +838,52 @@ export default function ResearchPaperChat() {
           </Card>
         </div>
       </div>
+
+      <Sheet open={isFormulaSheetOpen} onOpenChange={setIsFormulaSheetOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px]">
+          <SheetHeader>
+            <SheetTitle>Formula Insights - {pdfFile?.name}</SheetTitle>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(100vh-200px)] mt-6">
+            {formulas.length === 0 ? (
+              <p className="text-center text-muted-foreground">No formulas found or loading...</p>
+            ) : (
+              formulas.map((f, index) => (
+                <div
+                  key={index}
+                  className="p-3 border-b cursor-pointer hover:bg-muted transition-colors"
+                  onClick={() => handleFormulaClick(f)}
+                >
+                  <p className="text-sm font-medium">Page {f.page}</p>
+                  <p className="font-mono text-sm whitespace-pre-wrap">
+                    {f.formula}
+                  </p>
+                </div>
+              ))
+            )}
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Formula Explanation - Page {selectedFormula?.page}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="font-mono text-lg whitespace-pre-wrap">
+              {selectedFormula?.formula}
+            </p>
+            {isExplanationLoading ? (
+              <p className="text-muted-foreground">Generating explanation...</p>
+            ) : (
+              <p className="text-sm whitespace-pre-wrap">{explanation}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
