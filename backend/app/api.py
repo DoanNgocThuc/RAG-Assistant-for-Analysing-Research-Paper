@@ -65,7 +65,7 @@ async def upload_pdf(file: UploadFile = File(...)):
 async def ask_question(
     question: str,
     pdf_filename: str,
-    mode: str = "Novice",
+    mode: str,
     k: int = 3,
 ):
     pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)

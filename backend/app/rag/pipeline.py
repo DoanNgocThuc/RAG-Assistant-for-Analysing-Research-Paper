@@ -255,6 +255,10 @@ def _build_system_prompt(mode: str):
             "You are an assistant that helps peer reviewers. Provide critical analysis, list assumptions, "
             "possible threats to validity, and point to specific pages/paragraphs supporting claims."
         )
+    elif mode.lower() == "normal":
+        return (
+            "Keep it simple and avoid unnecessary jargon."
+        )
     else:
         return (
             "You are an assistant that explains scientific papers to an informed researcher. Provide precise, "

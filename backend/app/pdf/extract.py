@@ -23,11 +23,7 @@ def normalize(s: str) -> str:
     return s.strip()
 
 def is_formula(line: str) -> bool:
-    if not line or len(line) < 3:
-        return False
     if not MATH_OPS_REGEX.search(line):
-        return False
-    if not (DIGIT_REGEX.search(line) and LETTER_REGEX.search(line)):
         return False
     return True
 

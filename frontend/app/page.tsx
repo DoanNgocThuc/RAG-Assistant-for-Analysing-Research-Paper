@@ -405,7 +405,7 @@ export default function ResearchPaperChat() {
     try {
       const params = new URLSearchParams({
         question: `Explain the variables and meaning of this formula from page ${formula.page}: ${formula.formula}`,
-        mode: mode,
+        mode: "normal",
         pdf_filename: activeChat?.fileName || "",
         k: "5",
       });
