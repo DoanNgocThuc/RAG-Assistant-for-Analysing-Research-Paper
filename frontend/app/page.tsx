@@ -25,6 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Upload,
   Moon,
@@ -36,6 +42,7 @@ import {
   Trash2,
   Plus,
 } from "lucide-react";
+
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
@@ -74,6 +81,10 @@ export default function ResearchPaperChat() {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [contextText, setContextText] = useState<string>("");
+  const [openPopover, setOpenPopover] = useState<{
+    msgId: string;
+    idx: number;
+  } | null>(null);
 
   const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">(
     "Novice"
@@ -727,28 +738,53 @@ export default function ResearchPaperChat() {
                             <div className="mt-2">
                               <p className="text-xs font-semibold">Sources:</p>
                               {message.sources.map((source, index) => (
-                                <p
+                                <Popover
                                   key={index}
-                                  className="text-xs text-muted-foreground cursor-pointer hover:underline whitespace-pre-wrap"
-                                  onClick={() => {
-                                    // // Hiển thị context
-                                    fetchContext(source.page).then(
-                                      (context) => {
-                                        if (context) {
-                                          setContextText(context.text);
-                                          // console.log(
-                                          //   `Context for page ${source.page}: ${context.text}`
-                                          // );
-                                        }
-                                      }
-                                    );
-                                    // Nhảy tới trang PDF
-                                    setPageNumber(source.page);
+                                  open={
+                                    openPopover?.msgId === message.id &&
+                                    openPopover?.idx === index
+                                  }
+                                  onOpenChange={(open) => {
+                                    if (!open) setOpenPopover(null);
                                   }}
                                 >
-                                  Page {source.page}:{" "}
-                                  {source.snippet.substring(0, 100)}...
-                                </p>
+                                  <PopoverTrigger asChild>
+                                    <p
+                                      className="text-xs text-muted-foreground cursor-pointer hover:underline whitespace-pre-wrap"
+                                      onMouseEnter={() =>
+                                        setOpenPopover({
+                                          msgId: message.id,
+                                          idx: index,
+                                        })
+                                      }
+                                      onMouseLeave={() => setOpenPopover(null)}
+                                      onClick={() => {
+                                        fetchContext(source.page).then(
+                                          (context) => {
+                                            if (context)
+                                              setContextText(context.text);
+                                          }
+                                        );
+                                        setPageNumber(source.page);
+                                      }}
+                                    >
+                                      Page {source.page}:{" "}
+                                      {source.snippet.substring(0, 100)}...
+                                    </p>
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    side="top"
+                                    align="start"
+                                    className="max-w-lg text-xs"
+                                  >
+                                    <div className="font-semibold mb-1">
+                                      Why this?
+                                    </div>
+                                    <div className="whitespace-pre-wrap">
+                                      {source.explanation}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
                               ))}
                             </div>
                           )}
