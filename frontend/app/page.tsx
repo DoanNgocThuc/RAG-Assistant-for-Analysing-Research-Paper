@@ -1,5 +1,8 @@
 "use client";
 
+import "react-pdf/dist/Page/TextLayer.css";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -39,15 +48,21 @@ import {
   Plus,
   FunctionSquare,
 } from "lucide-react";
+
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
+
+const PDFViewer = dynamic(() => import("@/components/ui/pdf-viewer"), {
+  ssr: false,
+});
 
 interface Message {
   id: string;
   content: string;
   sender: "user" | "bot";
   timestamp: Date;
-  sources?: { page: number; snippet: string }[];
+  sources?: { page: number; snippet: string; explanation: string }[];
 }
 
 interface ChatSession {
@@ -74,6 +89,14 @@ export default function ResearchPaperChat() {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [contextText, setContextText] = useState<string>("");
+  const [openPopover, setOpenPopover] = useState<{
+    msgId: string;
+    idx: number;
+  } | null>(null);
+
   const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">(
     "Novice"
   );
@@ -158,6 +181,10 @@ export default function ResearchPaperChat() {
     setChatSessions((prev) => [newSession, ...prev]);
     return newSessionId;
   };
+
+  function cleanText(text: string) {
+    return text.replace(/[\r\n\t]/g, " ").replace(/[^\x20-\x7E]/g, "");
+  }
 
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -646,13 +673,18 @@ export default function ResearchPaperChat() {
                           </p>
                         </div>
                       ) : (
-                        <div className="text-center w-full h-full flex flex-col items-center justify-center">
-                          <iframe
-                            src={pdfUrl || undefined}
-                            title="PDF Preview"
-                            width="100%"
-                            height="100%"
-                          />
+                        <div className="w-full h-full flex flex-col items-center justify-center">
+                          {pdfFile && (
+                            <PDFViewer
+                              pdfFile={pdfFile}
+                              pageNumber={pageNumber}
+                              setPageNumber={setPageNumber}
+                              numPages={numPages}
+                              setNumPages={setNumPages}
+                              isLoadingPdf={isLoadingPdf}
+                              highlightText={contextText}
+                            />
+                          )}
                         </div>
                       )}
                     </div>
@@ -776,29 +808,53 @@ export default function ResearchPaperChat() {
                             <div className="mt-2">
                               <p className="text-xs font-semibold">Sources:</p>
                               {message.sources.map((source, index) => (
-                                <p
+                                <Popover
                                   key={index}
-                                  className="text-xs text-muted-foreground cursor-pointer hover:underline whitespace-pre-wrap"
-                                  onClick={() =>
-                                    fetchContext(source.page).then(
-                                      (context) => {
-                                        if (context) {
-                                          alert(
-                                            `Page ${
-                                              source.page
-                                            }: ${context.text.substring(
-                                              0,
-                                              500
-                                            )}...`
-                                          );
-                                        }
-                                      }
-                                    )
+                                  open={
+                                    openPopover?.msgId === message.id &&
+                                    openPopover?.idx === index
                                   }
+                                  onOpenChange={(open) => {
+                                    if (!open) setOpenPopover(null);
+                                  }}
                                 >
-                                  Page {source.page}:{" "}
-                                  {source.snippet.substring(0, 100)}...
-                                </p>
+                                  <PopoverTrigger asChild>
+                                    <p
+                                      className="text-xs text-muted-foreground cursor-pointer hover:underline whitespace-pre-wrap"
+                                      onMouseEnter={() =>
+                                        setOpenPopover({
+                                          msgId: message.id,
+                                          idx: index,
+                                        })
+                                      }
+                                      onMouseLeave={() => setOpenPopover(null)}
+                                      onClick={() => {
+                                        fetchContext(source.page).then(
+                                          (context) => {
+                                            if (context)
+                                              setContextText(context.text);
+                                          }
+                                        );
+                                        setPageNumber(source.page);
+                                      }}
+                                    >
+                                      Page {source.page}:{" "}
+                                      {source.snippet.substring(0, 100)}...
+                                    </p>
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    side="top"
+                                    align="start"
+                                    className="max-w-lg text-xs"
+                                  >
+                                    <div className="font-semibold mb-1">
+                                      Why this?
+                                    </div>
+                                    <div className="whitespace-pre-wrap">
+                                      {source.explanation}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
                               ))}
                             </div>
                           )}
