@@ -261,6 +261,25 @@ def _build_system_prompt(mode: str):
             "technical answers, include equations when relevant, and cite page numbers."
         )
 
+def explain_context(question:str, snippet:str):
+    print("Explaining context...")
+    system_prompt = (
+        "You are an assistant that explains the context of a given snippet in relation to a question. "
+        "Provide a clear and concise explanation."
+    )
+    user_prompt = (
+        f"Question: {question}\n\n"
+        f"Snippet: {snippet}\n\n"
+        "Explain why this snippet is relevant to the question and provide a brief reasoning."
+    )
+
+    try:
+        explanation = generate_with_ollama(system_prompt, user_prompt, max_tokens=500)
+    except Exception as e:
+        explanation = f"Failed to generate explanation: {e}"
+
+    return explanation
+
 # --- High-level pipeline --------------------------------------------------
 def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     """
@@ -280,7 +299,8 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
         page = c["metadata"]["page"]
         snippet = c["text"][:1000].strip()
         context_blocks.append(f"[page {page}] {snippet}")
-        sources.append({"page": page, "snippet": snippet})
+        explanation = explain_context(question=question, snippet=snippet)
+        sources.append({"page": page, "snippet": snippet, "explanation": explanation})
 
     user_prompt = (
         "You are given the following snippets from a target paper (each labeled by page). "
@@ -306,3 +326,5 @@ def get_page_text(pdf_path: str, page_number: int):
         if p["page"] == page_number:
             return p
     return None
+
+
