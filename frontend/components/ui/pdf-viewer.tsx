@@ -147,7 +147,7 @@ export default function PDFViewer({
         </Document>
       )}
 
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-2 items-center mb-4 mt-2">
         <Button
           size="sm"
           className="h-6 w-6 px-1 py-1 text-xs"
