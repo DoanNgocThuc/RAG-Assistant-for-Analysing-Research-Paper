@@ -1,6 +1,7 @@
 import { Document, Page, pdfjs } from "react-pdf";
 import { useState, Dispatch, SetStateAction, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import "react-pdf/dist/Page/TextLayer.css";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -28,6 +29,20 @@ export default function PDFViewer({
 }: PDFViewerProps & { highlightText?: string }) {
   const pageRef = useRef<HTMLDivElement>(null);
   const [isPageRendered, setIsPageRendered] = useState(false);
+  const [containerWidth, setContainerWidth] = useState<number | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    function updateWidth() {
+      if (pageRef.current) {
+        setContainerWidth(pageRef.current.offsetWidth);
+      }
+    }
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, []);
 
   useEffect(() => {
     setTimeout(() => {
@@ -127,23 +142,26 @@ export default function PDFViewer({
           <Page
             pageNumber={pageNumber}
             onRenderSuccess={() => setIsPageRendered(true)}
+            width={containerWidth}
           />
         </Document>
       )}
 
-      <div className="flex gap-2 mt-2">
+      <div className="flex gap-2 items-center">
         <Button
           size="sm"
+          className="h-6 w-6 px-1 py-1 text-xs"
           disabled={pageNumber <= 1}
           onClick={() => setPageNumber((p: number) => Math.max(1, p - 1))}
         >
-          Previous
+          <ChevronLeft />
         </Button>
-        <span className="text-sm">
+        <span className="text-sm text-muted-foreground flex items-center">
           Page {pageNumber} / {numPages || "?"}
         </span>
         <Button
           size="sm"
+          className="h-6 w-6 px-1 py-1 text-xs"
           disabled={numPages ? pageNumber >= numPages : true}
           onClick={() =>
             setPageNumber((p: number) =>
@@ -151,7 +169,7 @@ export default function PDFViewer({
             )
           }
         >
-          Next
+          <ChevronRight />
         </Button>
       </div>
     </div>
