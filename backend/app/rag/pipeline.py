@@ -6,6 +6,7 @@ import requests
 import numpy as np
 import faiss
 from app.pdf.extract import parse_pdf
+from app.evaluator.evaluate import evaluate_rag_with_gemini
 
 # Local Ollama endpoints and models
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
@@ -315,6 +316,16 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     # generate answer with Ollama
     try:
         answer_text = generate_with_ollama(system_prompt, user_prompt, max_tokens=800)
+        contexts_text_list = [item["text"] for item in contexts]
+        # print("contexts_text_list:", contexts_text_list)
+        evaluation_triad ={
+            "question": [question],
+            "contexts": [contexts_text_list],
+            "answer": [answer_text],
+        }
+        # print("evaluation_triad:",evaluation_triad)
+        evaluation_score = evaluate_rag_with_gemini(rag_triad=evaluation_triad)
+        print("evaluation_score:",evaluation_score)
     except Exception as e:
         raise RuntimeError(f"Generation failed: {e}")
         print(f"Error during generation: {e}")

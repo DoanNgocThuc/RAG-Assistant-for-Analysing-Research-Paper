@@ -5,3 +5,9 @@ pymupdf
 sentence-transformers
 faiss-cpu
 openai
+ragas
+datasets
+python-dotenv
+langchain
+langchain-google-genai
+google-generativeai
