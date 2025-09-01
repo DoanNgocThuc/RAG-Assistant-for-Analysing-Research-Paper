@@ -23,8 +23,28 @@ def normalize(s: str) -> str:
     return s.strip()
 
 def is_formula(line: str) -> bool:
+    # Must contain at least one math operator
     if not MATH_OPS_REGEX.search(line):
         return False
+
+    # Must contain at least one digit OR math-like letter (Latin/Greek)
+    if not (DIGIT_REGEX.search(line) or LETTER_REGEX.search(line)):
+        return False
+
+    # Ignore short things like "= -" or single symbols
+    if len(line) < 3:
+        return False
+
+    # Heuristic: formulas often have multiple operators or mixed types
+    ops = len(MATH_OPS_REGEX.findall(line))
+    if ops < 2 and not DIGIT_REGEX.search(line):
+        return False
+
+    # If it looks like plain English with =, reject it
+    words = line.split()
+    if len(words) > 5 and not re.search(r"\d", line):
+        return False
+
     return True
 
 def parse_pdf(path: str):

@@ -296,39 +296,64 @@ export default function ResearchPaperChat() {
   };
 
   const switchToChat = async (sessionId: string) => {
-    setActiveChatId(sessionId);
-    const session = chatSessions.find((s) => s.id === sessionId);
-    if (session) {
-      setIsLoading(true);
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/get_pdf/${encodeURIComponent(session.fileName)}`
-        );
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.detail || `HTTP error ${response.status}`);
-        }
-        const blob = await response.blob();
-        const file = new File([blob], session.fileName, {
-          type: "application/pdf",
-        });
-        Object.defineProperty(file, "size", { value: session.fileSize });
-        setPdfFile(file);
-      } catch (error: any) {
-        console.error("Error fetching PDF:", error);
-        alert(
-          `Error loading PDF: ${
-            error.message || "Unable to fetch PDF from server"
-          }`
-        );
-        setPdfFile(null);
-      } finally {
-        setIsLoading(false);
+  setActiveChatId(sessionId);
+  setFormulas([]); // Reset formulas when switching chats
+  const session = chatSessions.find((s) => s.id === sessionId);
+  if (session) {
+    setIsLoading(true);
+    try {
+      // Fetch the PDF file
+      const response = await fetch(
+        `${API_BASE_URL}/get_pdf/${encodeURIComponent(session.fileName)}`
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP error ${response.status}`);
       }
-    } else {
+      const blob = await response.blob();
+      const file = new File([blob], session.fileName, {
+        type: "application/pdf",
+      });
+      Object.defineProperty(file, "size", { value: session.fileSize });
+      setPdfFile(file);
+
+      // Fetch formulas for the new chat session
+      try {
+        const formulaResponse = await fetch(
+          `${API_BASE_URL}/formulas?pdf_filename=${encodeURIComponent(session.fileName)}`
+        );
+        if (!formulaResponse.ok) {
+          throw new Error("Failed to fetch formulas");
+        }
+        const formulaData = await formulaResponse.json();
+        setFormulas(formulaData.formulas || []);
+      } catch (error) {
+        console.error("Error fetching formulas:", error);
+        toast.error("Error fetching formulas for the new chat session.");
+      }
+    } catch (error: any) {
+      console.error("Error fetching PDF:", error);
+      alert(
+        `Error loading PDF: ${
+          error.message || "Unable to fetch PDF from server"
+        }`
+      );
       setPdfFile(null);
+      setFormulas([]); // Reset formulas on error
+    } finally {
+      setIsLoading(false);
     }
-  };
+  } else {
+    setPdfFile(null);
+    setFormulas([]); // Reset formulas if no session is found
+  }
+};
+
+const handleOpenFormulaInsight = async () => {
+  if (!activeChat || !pdfFile) return;
+  setIsFormulaSheetOpen(true);
+  // No need to fetch formulas here since they are fetched in switchToChat
+};
 
   const deleteChatSession = async (sessionId: string) => {
     const session = chatSessions.find((s) => s.id === sessionId);
@@ -401,25 +426,6 @@ export default function ResearchPaperChat() {
     } catch (error: any) {
       alert(`Error fetching context: ${error.message}`);
       return null;
-    }
-  };
-
-  const handleOpenFormulaInsight = async () => {
-    if (!activeChat || !pdfFile) return;
-    setIsFormulaSheetOpen(true);
-    if (formulas.length > 0) return;
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/formulas?pdf_filename=${encodeURIComponent(activeChat.fileName)}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch formulas");
-      }
-      const data = await response.json();
-      setFormulas(data.formulas || []);
-    } catch (error) {
-      toast.error("Error fetching formulas from the paper.");
     }
   };
 
