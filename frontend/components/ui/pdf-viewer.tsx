@@ -54,7 +54,9 @@ export default function PDFViewer({
           const fullTextNorm = normalize(
             spans.map((s) => s.innerHTML).join("")
           );
+          // console.log("Full text normalized:", fullTextNorm);
           let highlightNorm = normalize(highlightText).replace(/\d+$/, "");
+          // console.log("Highlight text normalized:", highlightNorm);
 
           // Tìm vị trí khớp toàn bộ
           let idx = fullTextNorm.indexOf(highlightNorm);
@@ -106,7 +108,7 @@ export default function PDFViewer({
           console.warn("Highlight error:", e);
         }
       }
-    }, 1000);
+    }, 2000);
   }, [highlightText, isPageRendered]);
 
   if (!pdfFile) return null;
