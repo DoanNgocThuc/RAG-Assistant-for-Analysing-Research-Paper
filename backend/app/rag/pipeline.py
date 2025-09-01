@@ -7,6 +7,7 @@ import numpy as np
 import faiss
 from app.pdf.extract import parse_pdf
 from app.evaluator.evaluate import evaluate_rag_with_gemini
+import json
 
 # Local Ollama endpoints and models
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
@@ -64,11 +65,11 @@ def embed_with_ollama(texts: List[str], retries: int = 3, timeout: int = 120) ->
         while attempt < retries:
             try:
                 payload = {"model": EMBED_MODEL_NAME, "prompt": text}
-                print(f"Sending payload for text {i+1}: {payload}")
+                #print(f"Sending payload for text {i+1}: {payload}")
                 r = requests.post(OLLAMA_EMBED_ENDPOINT, json=payload, timeout=timeout)
                 r.raise_for_status()
                 data = r.json()
-                print(f"Ollama embeddings response for text {i+1}: {data}")
+                #print(f"Ollama embeddings response for text {i+1}: {data}")
                 
                 if isinstance(data, dict) and "embedding" in data and data["embedding"]:
                     embedding = data["embedding"]
@@ -140,7 +141,7 @@ def generate_with_ollama(system_prompt: str, user_prompt: str, max_tokens: int =
         raise RuntimeError(f"Failed to parse Ollama JSON response: {e} - Response: {r.text}")
 
     # Log the raw response for debugging
-    print(f"Ollama response: {data}")
+    #print(f"Ollama response: {data}")
 
     # Handle common response formats
     if isinstance(data, dict):
@@ -267,7 +268,7 @@ def _build_system_prompt(mode: str):
         )
 
 def explain_context(question:str, snippet:str):
-    print("Explaining context...")
+    #print("Explaining context...")
     system_prompt = (
         "You are an assistant that explains the context of a given snippet in relation to a question. "
         "Provide a clear and concise explanation."
@@ -324,8 +325,11 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
             "answer": [answer_text],
         }
         # print("evaluation_triad:",evaluation_triad)
-        evaluation_score = evaluate_rag_with_gemini(rag_triad=evaluation_triad)
-        print("evaluation_score:",evaluation_score)
+        faithfulness_score = evaluate_rag_with_gemini(rag_triad=evaluation_triad)
+        print("faithfulness_score:",faithfulness_score)
+        answer_relevancy_score = evaluate_answer_relevancy(evaluation_triad)
+        print("answer_relevancy_score:",answer_relevancy_score)
+
     except Exception as e:
         raise RuntimeError(f"Generation failed: {e}")
         print(f"Error during generation: {e}")
@@ -364,3 +368,70 @@ def get_formulas(pdf_path: str):
     except Exception as e:
         print(f"Error in get_formulas: {str(e)}")
         raise
+
+
+def evaluate_answer_relevancy(evaluation_triad):
+    """
+    Đánh giá độ liên quan của answer với question cho 1 QA pair.
+    Args:
+        evaluation_triad: dict với keys "question", "contexts", "answer"
+    Returns:
+        relevance_score (float between 0 and 1)
+    """
+    print("Evaluating answer relevancy...")
+    question = evaluation_triad["question"][0]
+    answer = evaluation_triad["answer"][0]
+    contexts = evaluation_triad["contexts"][0]  # list các context
+
+    system_prompt = """You are an expert evaluator for question answering systems.
+Your task is to evaluate how relevant and responsive the answers are to their questions.
+Focus on whether the answer directly addresses what was asked.
+
+Score relevance using these exact criteria:
+0 = Answer is completely off-topic or unrelated to the question
+0.1 - 0.3 = Answer barely relates to the question's topic
+0.4 - 0.6 = Answer partially addresses the question but misses key aspects
+0.7 - 0.9 = Answer is mostly relevant and addresses the question well, but could be more focused
+1 = Answer perfectly matches the question's requirements with excellent focus
+
+IMPORTANT: Return ONLY valid JSON with scores and explanations.
+Do not include any other text before or after the JSON."""
+
+    user_prompt = f"""
+Evaluate the relevance of this answer to its question:
+
+Question: {question}
+Answer: {answer}
+Contexts: {json.dumps(contexts, ensure_ascii=False, indent=2)}
+
+Analyze:
+1. How directly the answer addresses the specific question asked
+2. Whether the answer includes unnecessary or off-topic information
+3. Whether the answer covers all aspects of the question
+4. The focus and precision of the answer
+
+Return your evaluation in this exact JSON format:
+{{
+    "relevance_score": score_between_0_and_1,
+    "explanation": "Detailed explanation of the score",
+    "addressed_aspects": ["List aspects of the question that were addressed"],
+    "missing_aspects": ["List aspects of the question that were not addressed"],
+    "off_topic_content": ["List any irrelevant or unnecessary content"]
+}}
+"""
+
+    result = generate_with_ollama(system_prompt, user_prompt)
+    result = result.strip()
+    if not result.startswith('{'):
+        start_idx = result.find('{')
+        if start_idx == -1:
+            raise ValueError("No JSON object found in response")
+        result = result[start_idx:]
+    if not result.endswith('}'):
+        end_idx = result.rfind('}')
+        if end_idx == -1:
+            raise ValueError("No closing brace found in response")
+        result = result[:end_idx + 1]
+
+    evaluation = json.loads(result)
+    return evaluation["relevance_score"]
