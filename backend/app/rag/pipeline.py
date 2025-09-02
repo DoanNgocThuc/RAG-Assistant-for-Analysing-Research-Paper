@@ -286,6 +286,7 @@ def explain_context(question:str, snippet:str):
 
     return explanation
 
+
 # --- High-level pipeline --------------------------------------------------
 def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     """
@@ -301,6 +302,10 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     system_prompt = _build_system_prompt(mode)
     context_blocks = []
     sources = []
+
+    # Sort chunks by page and chunk ID
+    # sorted_chunks_contexts = reindex_contexts(contexts)
+
     for c in contexts:
         page = c["metadata"]["page"]
         snippet = c["text"][:1000].strip()
@@ -317,24 +322,57 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     # generate answer with Ollama
     try:
         answer_text = generate_with_ollama(system_prompt, user_prompt, max_tokens=800)
-        contexts_text_list = [item["text"] for item in contexts]
-        # print("contexts_text_list:", contexts_text_list)
-        evaluation_triad ={
-            "question": [question],
-            "contexts": [contexts_text_list],
-            "answer": [answer_text],
-        }
-        # print("evaluation_triad:",evaluation_triad)
-        faithfulness_score = evaluate_rag_with_gemini(rag_triad=evaluation_triad)
-        print("faithfulness_score:",faithfulness_score)
-        answer_relevancy_score = evaluate_answer_relevancy(evaluation_triad)
-        print("answer_relevancy_score:",answer_relevancy_score)
 
     except Exception as e:
         raise RuntimeError(f"Generation failed: {e}")
         print(f"Error during generation: {e}")
 
     return answer_text, sources
+
+def evaluate_RAG (question_groundtruth:list, pdf_path:str):
+    print("Evaluating RAG...")
+    answers = []
+    questions = []
+    reference_contexts_list = []
+    contexts = []
+    references = []
+    for item in question_groundtruth:
+        # Extract question
+        question = item["question"]
+        questions.append(question)
+
+        # Extract references
+        reference_contexts = item["groundtruth_chunks"]
+        reference_contexts_list.append(reference_contexts)
+
+        # Extract ground truth answer
+        groundtruth_answer = item["groundtruth_answer"]
+        references.append(groundtruth_answer)
+
+        # Process the question -> answer, sources
+        generated_answer,sources = process_question(question, mode="normal", pdf_path=pdf_path, k=3)
+
+        # Append the generated answer to the answers list
+        answers.append(generated_answer)
+
+        # Append the sources to the contexts list
+        snippets = []
+        snippets = [item["snippet"] for item in sources]
+        contexts.append(snippets)
+
+        # Compare the generated answer with the ground truth
+        # Return a score between 0 and 1
+
+    evaluation_triad ={
+        "question": questions,
+        "contexts": contexts,
+        "answer": answers,
+        "reference": references,
+        "reference_contexts": reference_contexts_list
+    }
+    score = evaluate_rag_with_gemini(rag_triad = evaluation_triad)
+    return score
+
 
 # Optional utility: get full page content for UI 'Show context'
 def get_page_text(pdf_path: str, page_number: int):
