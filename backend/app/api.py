@@ -3,7 +3,7 @@ import json
 import os
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
-from app.rag.pipeline import evaluate_RAG, process_question, ensure_index_for_pdf, get_formulas
+from app.rag.pipeline import evaluate_RAG, process_question, ensure_index_for_pdf, get_formulas, suggest_related_papers_with_difference
 from app.pdf.extract import parse_pdf
 import requests
 from pathlib import Path
@@ -161,7 +161,7 @@ def rag_evaluation(pdf_filename: str):
     pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)  # Adjust path
 
     # get question_groundtruth list from question_groundtruth.json
-    with open("eval_outputs/question_groundtruth.json", "r",encoding="utf-8") as f:
+    with open("eval_outputs/question_groundtruth.json", "r", encoding="utf-8") as f:
         question_groundtruth = json.load(f)
     
     data = evaluate_RAG(question_groundtruth, pdf_path)
@@ -172,19 +172,36 @@ def rag_evaluation(pdf_filename: str):
     answer_relevancy = data["answer_relevancy"]
 
     # Tính trung bình
-    avg_faithfulness = sum(faithfulness)/len(faithfulness)
-    avg_recall = sum(context_recall)/len(context_recall)
-    avg_precision = sum(context_precision)/len(context_precision)
-    avg_answer_correctness = sum(answer_correctness)/len(answer_correctness)
-    avg_answer_relevancy = sum(answer_relevancy)/len(answer_relevancy)
+    avg_faithfulness = sum(faithfulness) / len(faithfulness)
+    avg_recall = sum(context_recall) / len(context_recall)
+    avg_precision = sum(context_precision) / len(context_precision)
+    avg_answer_correctness = sum(answer_correctness) / len(answer_correctness)
+    avg_answer_relevancy = sum(answer_relevancy) / len(answer_relevancy)
+
+    result = {
+        "faithfulness": avg_faithfulness,
+        "context_recall": avg_recall,
+        "context_precision": avg_precision,
+        "answer_correctness": avg_answer_correctness,
+        "answer_relevancy": avg_answer_relevancy
+    }
+
+    # Lưu kết quả vào file
+    os.makedirs("evaluation_scores", exist_ok=True)
+    with open("evaluation_scores/rag_evaluation_result.json", "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
 
     try:
-        return {
-            "faithfulness": avg_faithfulness,
-            "context_recall": avg_recall,
-            "context_precision": avg_precision,
-            "answer_correctness": avg_answer_correctness,
-            "answer_relevancy": avg_answer_relevancy
-        }
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/related_papers")
+def related_papers(pdf_filename: str):
+    print("looking for: ", pdf_filename)
+    pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)  # Adjust path
+    try:
+        return {"related_papers": suggest_related_papers_with_difference(pdf_path)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
