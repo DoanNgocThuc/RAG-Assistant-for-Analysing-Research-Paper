@@ -1,7 +1,7 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-def get_gemini_llm(model="gemini-1.5-pro", api_key=None):
+def get_gemini_llm(model="gemini-2.0-flash", api_key=None):
     """
     Trả về LLM tương thích với Ragas bằng LangChain wrapper.
     """

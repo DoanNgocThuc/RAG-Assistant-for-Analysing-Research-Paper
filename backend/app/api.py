@@ -1,8 +1,9 @@
 # api.py
+import json
 import os
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from fastapi.responses import JSONResponse, FileResponse  
-from app.rag.pipeline import process_question, ensure_index_for_pdf, get_formulas
+from fastapi.responses import JSONResponse, FileResponse
+from app.rag.pipeline import evaluate_RAG, process_question, ensure_index_for_pdf, get_formulas
 from app.pdf.extract import parse_pdf
 import requests
 from pathlib import Path
@@ -152,5 +153,38 @@ def formulas(pdf_filename: str):
     pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)  # Adjust path
     try:
         return {"formulas": get_formulas(pdf_path)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/rag-evaluation")
+def rag_evaluation(pdf_filename: str):
+    pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)  # Adjust path
+
+    # get question_groundtruth list from question_groundtruth.json
+    with open("eval_outputs/question_groundtruth.json", "r",encoding="utf-8") as f:
+        question_groundtruth = json.load(f)
+    
+    data = evaluate_RAG(question_groundtruth, pdf_path)
+    faithfulness = data["faithfulness"]
+    context_recall = data["context_recall"]
+    context_precision = data["context_precision"]
+    answer_correctness = data["answer_correctness"]
+    answer_relevancy = data["answer_relevancy"]
+
+    # Tính trung bình
+    avg_faithfulness = sum(faithfulness)/len(faithfulness)
+    avg_recall = sum(context_recall)/len(context_recall)
+    avg_precision = sum(context_precision)/len(context_precision)
+    avg_answer_correctness = sum(answer_correctness)/len(answer_correctness)
+    avg_answer_relevancy = sum(answer_relevancy)/len(answer_relevancy)
+
+    try:
+        return {
+            "faithfulness": avg_faithfulness,
+            "context_recall": avg_recall,
+            "context_precision": avg_precision,
+            "answer_correctness": avg_answer_correctness,
+            "answer_relevancy": avg_answer_relevancy
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
