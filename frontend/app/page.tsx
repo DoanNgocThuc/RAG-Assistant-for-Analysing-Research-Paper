@@ -5,7 +5,13 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -79,6 +85,11 @@ interface Formula {
   formula: string;
 }
 
+interface RelatedPaper {
+  pdf: string;
+  difference: string;
+}
+
 const API_BASE_URL = "http://localhost:8000";
 
 export default function ResearchPaperChat() {
@@ -96,6 +107,11 @@ export default function ResearchPaperChat() {
     msgId: string;
     idx: number;
   } | null>(null);
+  const [relatedPapers, setRelatedPapers] = useState<RelatedPaper[]>([]);
+  const [openRelatedPopover, setOpenRelatedPopover] = useState<number | null>(
+    null
+  );
+  const [isRelatedPaperLoading, setIsRelatedPaperLoading] = useState(false);
 
   const [mode, setMode] = useState<"Novice" | "Reviewer" | "Researcher">(
     "Novice"
@@ -153,13 +169,41 @@ export default function ResearchPaperChat() {
   // Create object URL for PDF file
   useEffect(() => {
     if (pdfFile) {
-      const url = URL.createObjectURL(pdfFile);
+      const url = pdfFile.name;
+      console.log("PDF URL:", url);
       setPdfUrl(url);
-      return () => URL.revokeObjectURL(url);
     } else {
       setPdfUrl(null);
     }
   }, [pdfFile]);
+
+  // Fetch related papers
+  useEffect(() => {
+    setIsRelatedPaperLoading(true);
+    if (!pdfUrl) return;
+
+    fetch(
+      `${API_BASE_URL}/related_papers?pdf_filename=${encodeURIComponent(
+        pdfUrl
+      )}`
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        setRelatedPapers(data.related_papers || []);
+      })
+      .catch((err) => {
+        // Có thể log lỗi hoặc bỏ qua
+      });
+  }, [pdfUrl]);
+
+  useEffect(() => {
+    console.log("related papers updated:", relatedPapers);
+    for (const paper of relatedPapers) {
+      console.log("Related paper pdf path:", paper.pdf);
+      console.log("Difference description:", paper.difference);
+    }
+    setIsRelatedPaperLoading(false);
+  }, [relatedPapers]);
 
   const createNewChatSession = (file: File, fileName: string): string => {
     const newSessionId = Date.now().toString();
@@ -181,10 +225,6 @@ export default function ResearchPaperChat() {
     setChatSessions((prev) => [newSession, ...prev]);
     return newSessionId;
   };
-
-  function cleanText(text: string) {
-    return text.replace(/[\r\n\t]/g, " ").replace(/[^\x20-\x7E]/g, "");
-  }
 
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -296,64 +336,66 @@ export default function ResearchPaperChat() {
   };
 
   const switchToChat = async (sessionId: string) => {
-  setActiveChatId(sessionId);
-  setFormulas([]); // Reset formulas when switching chats
-  const session = chatSessions.find((s) => s.id === sessionId);
-  if (session) {
-    setIsLoading(true);
-    try {
-      // Fetch the PDF file
-      const response = await fetch(
-        `${API_BASE_URL}/get_pdf/${encodeURIComponent(session.fileName)}`
-      );
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `HTTP error ${response.status}`);
-      }
-      const blob = await response.blob();
-      const file = new File([blob], session.fileName, {
-        type: "application/pdf",
-      });
-      Object.defineProperty(file, "size", { value: session.fileSize });
-      setPdfFile(file);
-
-      // Fetch formulas for the new chat session
+    setActiveChatId(sessionId);
+    setFormulas([]); // Reset formulas when switching chats
+    const session = chatSessions.find((s) => s.id === sessionId);
+    if (session) {
+      setIsLoading(true);
       try {
-        const formulaResponse = await fetch(
-          `${API_BASE_URL}/formulas?pdf_filename=${encodeURIComponent(session.fileName)}`
+        // Fetch the PDF file
+        const response = await fetch(
+          `${API_BASE_URL}/get_pdf/${encodeURIComponent(session.fileName)}`
         );
-        if (!formulaResponse.ok) {
-          throw new Error("Failed to fetch formulas");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `HTTP error ${response.status}`);
         }
-        const formulaData = await formulaResponse.json();
-        setFormulas(formulaData.formulas || []);
-      } catch (error) {
-        console.error("Error fetching formulas:", error);
-        toast.error("Error fetching formulas for the new chat session.");
-      }
-    } catch (error: any) {
-      console.error("Error fetching PDF:", error);
-      alert(
-        `Error loading PDF: ${
-          error.message || "Unable to fetch PDF from server"
-        }`
-      );
-      setPdfFile(null);
-      setFormulas([]); // Reset formulas on error
-    } finally {
-      setIsLoading(false);
-    }
-  } else {
-    setPdfFile(null);
-    setFormulas([]); // Reset formulas if no session is found
-  }
-};
+        const blob = await response.blob();
+        const file = new File([blob], session.fileName, {
+          type: "application/pdf",
+        });
+        Object.defineProperty(file, "size", { value: session.fileSize });
+        setPdfFile(file);
 
-const handleOpenFormulaInsight = async () => {
-  if (!activeChat || !pdfFile) return;
-  setIsFormulaSheetOpen(true);
-  // No need to fetch formulas here since they are fetched in switchToChat
-};
+        // Fetch formulas for the new chat session
+        try {
+          const formulaResponse = await fetch(
+            `${API_BASE_URL}/formulas?pdf_filename=${encodeURIComponent(
+              session.fileName
+            )}`
+          );
+          if (!formulaResponse.ok) {
+            throw new Error("Failed to fetch formulas");
+          }
+          const formulaData = await formulaResponse.json();
+          setFormulas(formulaData.formulas || []);
+        } catch (error) {
+          console.error("Error fetching formulas:", error);
+          toast.error("Error fetching formulas for the new chat session.");
+        }
+      } catch (error: any) {
+        console.error("Error fetching PDF:", error);
+        alert(
+          `Error loading PDF: ${
+            error.message || "Unable to fetch PDF from server"
+          }`
+        );
+        setPdfFile(null);
+        setFormulas([]); // Reset formulas on error
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setPdfFile(null);
+      setFormulas([]); // Reset formulas if no session is found
+    }
+  };
+
+  const handleOpenFormulaInsight = async () => {
+    if (!activeChat || !pdfFile) return;
+    setIsFormulaSheetOpen(true);
+    // No need to fetch formulas here since they are fetched in switchToChat
+  };
 
   const deleteChatSession = async (sessionId: string) => {
     const session = chatSessions.find((s) => s.id === sessionId);
@@ -897,6 +939,86 @@ const handleOpenFormulaInsight = async () => {
                 </Button>
               </div>
             </CardContent>
+            {pdfFile && (
+              <CardFooter>
+                <div>
+                  <p className="text-xs font-semibold">Related Papers:</p>
+                  {isRelatedPaperLoading ? (
+                    <p className="text-xs text-muted-foreground">
+                      Loading related papers...
+                    </p>
+                  ) : relatedPapers.length > 0 ? (
+                    <div className="mt-2">
+                      <div className="flex flex-wrap flex-col">
+                        {relatedPapers.map((paper, idx) => (
+                          <Popover
+                            key={idx}
+                            open={openRelatedPopover === idx}
+                            onOpenChange={(open) => {
+                              if (!open) setOpenRelatedPopover(null);
+                            }}
+                          >
+                            <PopoverTrigger asChild>
+                              <a
+                                href="#"
+                                className="text-xs text-blue-600 underline cursor-pointer mb-4"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  const existingSession = chatSessions.find(
+                                    (session) => session.fileName === paper.pdf
+                                  );
+                                  if (existingSession) {
+                                    setActiveChatId(existingSession.id);
+                                    switchToChat(existingSession.id);
+                                  } else {
+                                    fetch(
+                                      `${API_BASE_URL}/get_pdf/${encodeURIComponent(
+                                        paper.pdf
+                                      )}`
+                                    )
+                                      .then((res) => res.blob())
+                                      .then((blob) => {
+                                        const file = new File(
+                                          [blob],
+                                          paper.pdf,
+                                          {
+                                            type: "application/pdf",
+                                          }
+                                        );
+                                        const newSessionId =
+                                          createNewChatSession(file, paper.pdf);
+                                        setActiveChatId(newSessionId);
+                                        switchToChat(newSessionId);
+                                      });
+                                  }
+                                }}
+                                onMouseEnter={() => setOpenRelatedPopover(idx)}
+                                onMouseLeave={() => setOpenRelatedPopover(null)}
+                              >
+                                {paper.pdf}
+                              </a>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              side="top"
+                              align="start"
+                              className="max-w-lg text-xs"
+                            >
+                              <div className="whitespace-pre-wrap">
+                                {paper.difference}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      No related papers found.
+                    </p>
+                  )}
+                </div>
+              </CardFooter>
+            )}
           </Card>
         </div>
       </div>
@@ -908,7 +1030,9 @@ const handleOpenFormulaInsight = async () => {
           </SheetHeader>
           <ScrollArea className="h-[calc(100vh-200px)] mt-6">
             {formulas.length === 0 ? (
-              <p className="text-center text-muted-foreground">No formulas found or loading...</p>
+              <p className="text-center text-muted-foreground">
+                No formulas found or loading...
+              </p>
             ) : (
               formulas.map((f, index) => (
                 <div
