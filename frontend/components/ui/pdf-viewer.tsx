@@ -123,7 +123,7 @@ export default function PDFViewer({
           console.warn("Highlight error:", e);
         }
       }
-    }, 2000);
+    }, 1000);
   }, [highlightText, isPageRendered]);
 
   if (!pdfFile) return null;
