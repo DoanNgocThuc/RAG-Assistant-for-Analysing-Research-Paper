@@ -245,7 +245,7 @@ def retrieve_top_k(question: str, pdf_path: str, k: int = 3):
     return results
 
 # --- Reranking with LLM ------------------------------------------
-def rerank_chunks(question, chunks):
+def rerank_chunks(question, chunks, k:int =3):
     """
     Dùng LLM để đánh giá lại mức độ liên quan của từng chunk với câu hỏi.
     Trả về danh sách các chunk đã được sắp xếp lại, loại bỏ các chunk có rerank_score bằng 0.
@@ -257,7 +257,7 @@ def rerank_chunks(question, chunks):
             f"Câu hỏi: {question}\n"
             f"Đoạn: {chunk['text']}\n"
             "Trả về kết quả dưới dạng JSON với định dạng: {\"score\": số_thực_từ_0_đến_1}. "
-            "Không trả về bất kỳ thông tin nào ngoài JSON này."
+            "Chỉ trả về JSON đó với đúng định dạng đã quy định, Không trả về thêm bất kỳ thông tin nào ngoài JSON này."
         )
         score_str = generate_with_ollama(system_prompt, user_prompt, max_tokens=20)
         print(f"Rerank score string: '{score_str}'")
@@ -276,9 +276,9 @@ def rerank_chunks(question, chunks):
             score = 0.0
         reranked.append({**chunk, "rerank_score": score})
     # Loại bỏ các chunk có rerank_score bằng 0
-    reranked = [c for c in reranked if c["rerank_score"] > 0]
+    # reranked = [c for c in reranked if c["rerank_score"] > 0.5]
     reranked = sorted(reranked, key=lambda x: x["rerank_score"], reverse=True)
-    return reranked
+    return reranked[:k]
 
 # --- System prompt builder ------------------------------------------------
 def _build_system_prompt(mode: str):
@@ -334,9 +334,50 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     print("Processing question...")
     # retrieve
     contexts = retrieve_top_k(question, pdf_path, k=k)
+
+    # prepare system & user prompts
+    system_prompt = _build_system_prompt(mode)
+    context_blocks = []
+    sources = []
+
+    # Sort chunks by page and chunk ID
+    # sorted_chunks_contexts = reindex_contexts(contexts)
+
+    for c in contexts:
+        page = c["metadata"]["page"]
+        snippet = c["text"][:SNIPPET_SIZE].strip()
+        context_blocks.append(f"[page {page}] {snippet}")
+        explanation = explain_context(question=question, snippet=snippet)
+        sources.append({"page": page, "snippet": snippet, "explanation": explanation})
+
+    user_prompt = (
+        "You are given the following snippets from a target paper (each labeled by page). "
+        "Answer the question using ONLY the provided snippets. Quote page numbers inline where relevant. "
+        f"Question: {question}\n\nContext:\n" + "\n\n".join(context_blocks)
+    )
+
+    # generate answer with Ollama
+    try:
+        answer_text = generate_with_ollama(system_prompt, user_prompt, max_tokens=800)
+
+    except Exception as e:
+        raise RuntimeError(f"Generation failed: {e}")
+        print(f"Error during generation: {e}")
+
+    return answer_text, sources
+
+def process_question_reranked(question: str, mode: str, pdf_path: str, k: int = 3):
+    """
+    Main entrypoint used by the backend.
+    Returns: (answer_text, sources_list)
+      - sources_list: list of {"page": n, "snippet": "..."}
+    """
+    print("Processing question...")
+    # retrieve
+    contexts = retrieve_top_k(question, pdf_path, k=k)
     print(f"Retrieved {len(contexts)} chunks.")
     # rerank
-    reranks = rerank_chunks(question, contexts)
+    reranks = rerank_chunks(question, contexts, k=3)
     print(f"Reranked chunks: {[ (c['metadata']['page'], c['rerank_score']) for c in reranks ]}")
 
     # prepare system & user prompts

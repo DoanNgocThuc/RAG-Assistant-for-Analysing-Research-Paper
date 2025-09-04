@@ -67,7 +67,7 @@ async def ask_question(
     question: str,
     pdf_filename: str,
     mode: str,
-    k: int = 5,
+    k: int = 3,
 ):
     pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
     if not os.path.exists(pdf_path):
