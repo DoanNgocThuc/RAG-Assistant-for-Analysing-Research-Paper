@@ -15,12 +15,15 @@ OLLAMA_EMBED_ENDPOINT = f"{OLLAMA_HOST}/api/embeddings"
 OLLAMA_GEN_ENDPOINT = f"{OLLAMA_HOST}/api/generate"
 EMBED_MODEL_NAME = "nomic-embed-text"   # ensure you pulled this: ollama pull nomic-embed-text
 LLM_MODEL_NAME = "llama3.2"              # ensure you pulled this: ollama pull llama3.2
+CHUNK_SIZE = 1200
+OVERLAP_SIZE = 200
+SNIPPET_SIZE = CHUNK_SIZE - OVERLAP_SIZE
 
 EMBEDDINGS_DIR = os.path.join(os.getcwd(), "embeddings")
 os.makedirs(EMBEDDINGS_DIR, exist_ok=True)
 
 # --- Helpers: chunking ----------------------------------------------------
-def chunk_text(text: str, max_chars: int = 2000, overlap: int = 200):
+def chunk_text(text: str, max_chars: int = CHUNK_SIZE, overlap: int = OVERLAP_SIZE):
     """
     Chunk text into overlapping windows by character length.
     Ensures forward progress to avoid infinite loops.
@@ -45,7 +48,6 @@ def chunk_text(text: str, max_chars: int = 2000, overlap: int = 200):
         if start >= end:  # safety against infinite loop
             start = end
     return chunks
-
 
 # --- Ollama embedding helper ----------------------------------------------
 def embed_with_ollama(texts: List[str], retries: int = 3, timeout: int = 120) -> np.ndarray:
@@ -185,7 +187,7 @@ def ensure_index_for_pdf(pdf_path: str, pages: List[dict] = None):
         page_num = p["page"]
         page_text = p.get("text", "").strip()
         # chunk page text into segments
-        chunks = chunk_text(page_text, max_chars=1200, overlap=200)
+        chunks = chunk_text(page_text, max_chars=CHUNK_SIZE, overlap=OVERLAP_SIZE)
         for i, c in enumerate(chunks):
             # skip empty chunks
             if not c.strip():
@@ -242,6 +244,42 @@ def retrieve_top_k(question: str, pdf_path: str, k: int = 3):
         results.append({"text": text, "metadata": md})
     return results
 
+# --- Reranking with LLM ------------------------------------------
+def rerank_chunks(question, chunks):
+    """
+    Dùng LLM để đánh giá lại mức độ liên quan của từng chunk với câu hỏi.
+    Trả về danh sách các chunk đã được sắp xếp lại, loại bỏ các chunk có rerank_score bằng 0.
+    """
+    reranked = []
+    for chunk in chunks:
+        system_prompt = "Bạn là chuyên gia. Đánh giá mức độ liên quan của đoạn sau với câu hỏi."
+        user_prompt = (
+            f"Câu hỏi: {question}\n"
+            f"Đoạn: {chunk['text']}\n"
+            "Trả về kết quả dưới dạng JSON với định dạng: {\"score\": số_thực_từ_0_đến_1}. "
+            "Không trả về bất kỳ thông tin nào ngoài JSON này."
+        )
+        score_str = generate_with_ollama(system_prompt, user_prompt, max_tokens=20)
+        print(f"Rerank score string: '{score_str}'")
+        try:
+            # Tìm JSON trong chuỗi trả về
+            start = score_str.find('{')
+            end = score_str.rfind('}')
+            if start != -1 and end != -1:
+                score_json = score_str[start:end+1]
+                score = json.loads(score_json).get("score", 0.0)
+            else:
+                score = 0.0
+            score = float(score)
+        except Exception as e:
+            print(f"Error parsing rerank score: {e}")
+            score = 0.0
+        reranked.append({**chunk, "rerank_score": score})
+    # Loại bỏ các chunk có rerank_score bằng 0
+    reranked = [c for c in reranked if c["rerank_score"] > 0]
+    reranked = sorted(reranked, key=lambda x: x["rerank_score"], reverse=True)
+    return reranked
+
 # --- System prompt builder ------------------------------------------------
 def _build_system_prompt(mode: str):
     print("Building system prompt...")
@@ -286,7 +324,6 @@ def explain_context(question:str, snippet:str):
 
     return explanation
 
-
 # --- High-level pipeline --------------------------------------------------
 def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     """
@@ -297,6 +334,10 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     print("Processing question...")
     # retrieve
     contexts = retrieve_top_k(question, pdf_path, k=k)
+    print(f"Retrieved {len(contexts)} chunks.")
+    # rerank
+    reranks = rerank_chunks(question, contexts)
+    print(f"Reranked chunks: {[ (c['metadata']['page'], c['rerank_score']) for c in reranks ]}")
 
     # prepare system & user prompts
     system_prompt = _build_system_prompt(mode)
@@ -306,9 +347,9 @@ def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
     # Sort chunks by page and chunk ID
     # sorted_chunks_contexts = reindex_contexts(contexts)
 
-    for c in contexts:
+    for c in reranks:
         page = c["metadata"]["page"]
-        snippet = c["text"][:1000].strip()
+        snippet = c["text"][:SNIPPET_SIZE].strip()
         context_blocks.append(f"[page {page}] {snippet}")
         explanation = explain_context(question=question, snippet=snippet)
         sources.append({"page": page, "snippet": snippet, "explanation": explanation})
@@ -373,7 +414,6 @@ def evaluate_RAG (question_groundtruth:list, pdf_path:str):
     score = evaluate_rag_with_gemini(rag_triad = evaluation_triad)
     return score
 
-
 # Optional utility: get full page content for UI 'Show context'
 def get_page_text(pdf_path: str, page_number: int):
     print("Getting full page text...")
@@ -406,7 +446,6 @@ def get_formulas(pdf_path: str):
     except Exception as e:
         print(f"Error in get_formulas: {str(e)}")
         raise
-
 
 def evaluate_answer_relevancy(evaluation_triad):
     """
