@@ -54,6 +54,7 @@ import {
   Plus,
   FunctionSquare,
 } from "lucide-react";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -107,6 +108,7 @@ export default function ResearchPaperChat() {
     msgId: string;
     idx: number;
   } | null>(null);
+  const [isContextDialogOpen, setIsContextDialogOpen] = useState(false);
   const [relatedPapers, setRelatedPapers] = useState<RelatedPaper[]>([]);
   const [openRelatedPopover, setOpenRelatedPopover] = useState<number | null>(
     null
@@ -879,8 +881,10 @@ export default function ResearchPaperChat() {
                                       onClick={() => {
                                         fetchContext(source.page).then(
                                           (context) => {
-                                            if (context)
+                                            if (context) {
                                               setContextText(context.text);
+                                              setIsContextDialogOpen(true); // mở dialog
+                                            }
                                           }
                                         );
                                         setPageNumber(source.page);
@@ -902,6 +906,23 @@ export default function ResearchPaperChat() {
                                       {source.explanation}
                                     </div>
                                   </PopoverContent>
+                                  <Dialog
+                                    open={isContextDialogOpen}
+                                    onOpenChange={setIsContextDialogOpen}
+                                  >
+                                    <DialogContent>
+                                      <DialogHeader>
+                                        <VisuallyHidden>
+                                          <DialogTitle>
+                                            Context on Page {source.page}
+                                          </DialogTitle>
+                                        </VisuallyHidden>
+                                      </DialogHeader>
+                                      <div className="whitespace-pre-wrap text-sm">
+                                        {contextText || "No context found."}
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
                                 </Popover>
                               ))}
                             </div>
