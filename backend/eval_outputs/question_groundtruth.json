@@ -1,40 +1,72 @@
 [
   {
-    "question": "Trình bày phương trình dao động điều hòa, ý nghĩa các đại lượng trong đó và công thức tính chu kỳ dao động của con lắc lò xo.",
+    "question": "Dao động cơ học là gì?",
     "groundtruth_chunks": [
-      "CHUYÊN ĐỀ SÓNG – VẬT LÍ 12 \n\nChương 1. Dao động cơ học \n\nDao động cơ học được định nghĩa là chuyển động qua lại của một vật quanh vị trí cân bằng \ntheo thời gian. Bản chất của dao động là do tác dụng của lực phục hồi, lực này luôn hướng \nvề vị trí cân bằng và có xu hướng đưa vật trở lại trạng thái ban đầu. Trong số các dạng dao \nđộng, dao động điều hòa có vai trò đặc biệt quan trọng bởi vì nó không chỉ là dạng dao động \ncơ bản mà còn có thể coi là “viên gạch” cấu thành nhiều dao động phức tạp khác. \n\nDao động điều hòa có phương trình tổng quát: \n\n𝑥(𝑡) = 𝐴cos(𝜔𝑡+ 𝜑) \n\nTrong phương trình này, 𝑥(𝑡) là li độ, tức độ lệch của vật so với vị trí cân bằng tại thời điểm 𝑡. \nHệ số 𝐴 là biên độ dao động, thể hiện độ lệch cực đại của vật. Tần số góc 𝜔 phản ánh tốc \nđộ dao động, liên hệ với tần số tuần hoàn 𝑓 thông qua 𝜔=  2𝜋𝑓. Đại lượng 𝜙 gọi là pha ban \nđầu, mô tả trạng thái xuất phát của dao động ở thời điểm 𝑡 = 0. \n\nKhi lấy đạo hàm của phương trình li độ, ta thu được vận tốc và gia tốc. Vận tốc dao động là \n\n𝑣(𝑡) = −𝜔𝐴sin(𝜔𝑡+ 𝜑) \n\n, trong khi gia tốc là \n\n𝑎(𝑡) = −𝜔2𝑥(𝑡) \n\nCông thức gia tốc cho thấy gia tốc luôn tỉ lệ với độ lệch nhưng ngược chiều, điều đó khẳng \nđịnh rằng chuyển động điều h",
-      "òa thực chất là chuyển động dưới tác dụng của một lực phục \nhồi có độ lớn tỉ lệ với độ lệch. Chu kỳ và tần số dao động được xác định theo công thức: \n\n𝑇= 2𝜋\n\n𝜔,  𝑓= 1\n\n𝑇 \n\nVí dụ, một con lắc lò xo có chu kỳ dao động được tính bằng: \n\n𝑇= 2𝜋√𝑚\n\n𝑘 \n\ntrong đó 𝑚 là khối lượng vật nặng và 𝑘 là độ cứng của lò xo. \n\n1"
+      "Dao động cơ học được định nghĩa là chuyển động qua lại của một vật quanh vị trí cân bằng theo thời gian. Bản chất của dao động là do tác dụng của lực phục hồi, lực này luôn hướng về vị trí cân bằng và có xu hướng đưa vật trở lại trạng thái ban đầu."
     ],
-    "groundtruth_answer": "Dao động điều hòa có phương trình tổng quát: 𝑥(𝑡) = 𝐴cos(𝜔𝑡+ 𝜑) Trong phương trình này, 𝑥(𝑡) là li độ, tức độ lệch của vật so với vị trí cân bằng tại thời điểm 𝑡. \nHệ số 𝐴 là biên độ dao động, thể hiện độ lệch cực đại của vật. Tần số góc 𝜔 phản ánh tốc \nđộ dao động, liên hệ với tần số tuần hoàn 𝑓 thông qua 𝜔=  2𝜋𝑓. Đại lượng 𝜙 gọi là pha ban đầu, mô tả trạng thái xuất phát của dao động ở thời điểm 𝑡 = 0. Khi lấy đạo hàm của phương trình li độ, ta thu được vận tốc và gia tốc. Vận tốc dao động là 𝑣(𝑡) = −𝜔𝐴sin(𝜔𝑡+ 𝜑) , trong khi gia tốc là 𝑎(𝑡) = −𝜔2𝑥(𝑡) Công thức gia tốc cho thấy gia tốc luôn tỉ lệ với độ lệch nhưng ngược chiều, điều đó khẳng \nđịnh rằng chuyển động điều hòa thực chất là chuyển động dưới tác dụng của một lực phục hồi có độ lớn tỉ lệ với độ lệch. Chu kỳ và tần số dao động được xác định theo công thức: 𝑇= 2𝜋𝜔,  𝑓= 1𝑇 Ví dụ, một con lắc lò xo có chu kỳ dao động được tính bằng: 𝑇= 2𝜋√𝑚𝑘 trong đó 𝑚 là khối lượng vật nặng và 𝑘 là độ cứng của lò xo."
+    "groundtruth_answer": "Dao động cơ học là chuyển động qua lại của một vật quanh vị trí cân bằng theo thời gian."
   },
   {
-    "question": "Phương trình sóng cơ học điều hòa có dạng thế nào và các đặc trưng của sóng cơ học gồm những gì?",
+    "question": "Biên độ dao động biểu thị điều gì?",
     "groundtruth_chunks": [
-      "Chương 2. Sóng cơ học \n\nSóng cơ học có thể được hiểu là quá trình lan truyền dao động trong một môi trường vật \nchất. Bản chất của sóng cơ là truyền năng lượng, chứ không phải truyền vật chất. Khi ta thả \nmột viên đá xuống mặt hồ, ta thấy các gợn sóng lan tỏa ra xung quanh. Thực tế, các phần tử \nnước không di chuyển theo sóng mà chỉ dao động quanh vị trí cân bằng; năng lượng mới là \nyếu tố được truyền đi. \n\nSóng cơ học được mô tả bởi phương trình sóng điều hòa: \n\n𝑢(𝑥, 𝑡) = 𝐴cos(𝜔𝑡−𝑘𝑥+ 𝜑) \n\ntrong đó 𝑢(𝑥, 𝑡) là li độ dao động tại vị trí xxx và thời điểm 𝑡. Tham số 𝐴 biểu thị biên độ sóng, \n\n2𝜋\n\n𝜔 là tần số góc, còn 𝑘=\n\n𝜆 được gọi là số sóng, liên hệ trực tiếp với bước sóng 𝜆. \n\nVận tốc truyền sóng được xác định theo: \n\n𝑣= 𝜆𝑓= 𝜆\n\n𝑇 \n\nMối quan hệ này cho thấy tốc độ lan truyền sóng phụ thuộc đồng thời vào bước sóng và tần \nsố. \n\nSóng cơ học có thể được chia thành hai loại. Sóng ngang là sóng trong đó phương dao động \ncủa phần tử môi trường vuông góc với phương truyền sóng, điển hình là sóng trên mặt nước. \nNgược lại, sóng dọc là sóng trong đó phương dao động song song với phương truyền sóng, \nđiển hình là sóng âm trong không khí. \n\nChương 3. Giao thoa sóng \n\nGiao thoa sóng là hiện tượn"
+      "Hệ số 𝐴 là biên độ dao động, thể hiện độ lệch cực đại của vật."
     ],
-    "groundtruth_answer": "Sóng cơ học được mô tả bởi phương trình sóng điều hòa: 𝑢(𝑥, 𝑡) = 𝐴cos(𝜔𝑡−𝑘𝑥+ 𝜑) trong đó 𝑢(𝑥, 𝑡) là li độ dao động tại vị trí xxx và thời điểm 𝑡. Tham số 𝐴 biểu thị biên độ sóng, 2𝜋𝜔 là tần số góc, còn 𝑘=𝜆 được gọi là số sóng, liên hệ trực tiếp với bước sóng 𝜆. Vận tốc truyền sóng được xác định theo: 𝑣= 𝜆𝑓= 𝜆𝑇 Mối quan hệ này cho thấy tốc độ lan truyền sóng phụ thuộc đồng thời vào bước sóng và tần số. Sóng cơ học có thể được chia thành hai loại. Sóng ngang là sóng trong đó phương dao động của phần tử môi trường vuông góc với phương truyền sóng, điển hình là sóng trên mặt nước. \nNgược lại, sóng dọc là sóng trong đó phương dao động song song với phương truyền sóng, điển hình là sóng âm trong không khí. "
+    "groundtruth_answer": "Biên độ dao động biểu thị độ lệch cực đại của vật so với vị trí cân bằng."
   },
   {
-    "question": "Nêu điều kiện để xuất hiện cực đại và cực tiểu trong hiện tượng giao thoa sóng.",
+    "question": "Trong sóng cơ học, đại lượng nào mô tả số sóng?",
     "groundtruth_chunks": [
-      "g xảy ra khi hai hay nhiều sóng gặp nhau tại một điểm trong \nkhông gian. Theo nguyên lí chồng chất, dao động tại điểm đó bằng tổng đại số các dao động \nthành phần. Giao thoa đặc biệt rõ ràng khi các sóng có cùng tần số và biên độ. \n\nTrong trường hợp hai sóng kết hợp có cùng biên độ 𝐴0, biên độ dao động tổng hợp tại điểm \nkhảo sát được tính bằng: \n\n𝐴= 2𝐴0 cos (Δ𝜑\n\n2 )  \n\ntrong đó Δ𝜑 là độ lệch pha giữa hai sóng. \n\nĐiều kiện để xuất hiện cực đại giao thoa, tức biên độ tổng hợp lớn nhất, là: \n\nΔ𝑑= 𝑘𝜆 (𝑘∈𝑍)  \n\ncòn điều kiện cực tiểu giao thoa, tức triệt tiêu lẫn nhau, là: \n\n2",
-      "Δ𝑑= (𝑘+\\𝑡𝑓𝑟𝑎𝑐12)𝜆 (𝑘∈𝑍)  \n\nHiện tượng giao thoa sóng minh họa bản chất sóng của các dao động cơ học và được ứng \ndụng trong nhiều thí nghiệm quan trọng. Một ví dụ điển hình là thí nghiệm Young chứng \nminh ánh sáng có tính chất sóng. \n\nChương 4. Sóng dừng \n\nSóng dừng được hình thành khi một sóng tới và một sóng phản xạ, có cùng tần số và biên \nđộ, truyền ngược chiều trong cùng một môi trường và giao thoa với nhau. Kết quả là không \ngian xuất hiện những điểm đứng yên gọi là nút sóng, xen kẽ với những điểm dao động cực \nđại gọi là bụng sóng. \n\nPhương trình sóng dừng được biểu diễn: \n\n𝑢(𝑥, 𝑡) = 2𝐴cos(𝑘𝑥) cos(𝜔𝑡)  \n\nTrong đó, nếu cos(𝑘𝑥) = 0, biên độ dao động bằng 0, đó là các nút sóng. Nếu cos(𝑘𝑥) = ±1, \nbiên độ đạt cực đại, đó là các bụng sóng. \n\nCác vị trí nút được xác định bởi: \n\n𝑥nút = (𝑘+\\𝑡𝑓𝑟𝑎𝑐12) 𝜆\n\n2  \n\n, trong khi vị trí bụng là: \n\n𝑥bụng = 𝑘𝜆\n\n2 \n\nSóng dừng có ý nghĩa quan trọng trong âm nhạc và kĩ thuật. Chẳng hạn, trên dây đàn guitar, \ncác nốt nhạc phát ra phụ thuộc vào vị trí nút và bụng sóng được hình thành trên dây. \n\nChương 5. Sóng âm \n\nSóng âm là một dạng sóng cơ học dọc, truyền trong các môi trường vật chất như chất rắn, \nchất lỏng và chất khí. Đối với con người, dải tầ"
+      "𝑘 = 2𝜋/𝜆 được gọi là số sóng, liên hệ trực tiếp với bước sóng 𝜆."
     ],
-    "groundtruth_answer": "Điều kiện để xuất hiện cực đại giao thoa, tức biên độ tổng hợp lớn nhất, là: Δ𝑑= 𝑘𝜆 (𝑘∈𝑍)  còn điều kiện cực tiểu giao thoa, tức triệt tiêu lẫn nhau, là: Δ𝑑= (𝑘+\\𝑡𝑓𝑟𝑎𝑐12)𝜆 (𝑘∈𝑍)"
+    "groundtruth_answer": "Số sóng được ký hiệu là k, bằng 2π/λ."
   },
   {
-    "question": "Mô tả sự hình thành sóng dừng, phương trình sóng dừng và cách xác định vị trí nút, bụng.",
+    "question": "Vận tốc truyền sóng được tính theo công thức nào?",
     "groundtruth_chunks": [
-      "Δ𝑑= (𝑘+\\𝑡𝑓𝑟𝑎𝑐12)𝜆 (𝑘∈𝑍)  \n\nHiện tượng giao thoa sóng minh họa bản chất sóng của các dao động cơ học và được ứng \ndụng trong nhiều thí nghiệm quan trọng. Một ví dụ điển hình là thí nghiệm Young chứng \nminh ánh sáng có tính chất sóng. \n\nChương 4. Sóng dừng \n\nSóng dừng được hình thành khi một sóng tới và một sóng phản xạ, có cùng tần số và biên \nđộ, truyền ngược chiều trong cùng một môi trường và giao thoa với nhau. Kết quả là không \ngian xuất hiện những điểm đứng yên gọi là nút sóng, xen kẽ với những điểm dao động cực \nđại gọi là bụng sóng. \n\nPhương trình sóng dừng được biểu diễn: \n\n𝑢(𝑥, 𝑡) = 2𝐴cos(𝑘𝑥) cos(𝜔𝑡)  \n\nTrong đó, nếu cos(𝑘𝑥) = 0, biên độ dao động bằng 0, đó là các nút sóng. Nếu cos(𝑘𝑥) = ±1, \nbiên độ đạt cực đại, đó là các bụng sóng. \n\nCác vị trí nút được xác định bởi: \n\n𝑥nút = (𝑘+\\𝑡𝑓𝑟𝑎𝑐12) 𝜆\n\n2  \n\n, trong khi vị trí bụng là: \n\n𝑥bụng = 𝑘𝜆\n\n2 \n\nSóng dừng có ý nghĩa quan trọng trong âm nhạc và kĩ thuật. Chẳng hạn, trên dây đàn guitar, \ncác nốt nhạc phát ra phụ thuộc vào vị trí nút và bụng sóng được hình thành trên dây. \n\nChương 5. Sóng âm \n\nSóng âm là một dạng sóng cơ học dọc, truyền trong các môi trường vật chất như chất rắn, \nchất lỏng và chất khí. Đối với con người, dải tầ"
+      "Vận tốc truyền sóng được xác định theo: v = λf = λ/T"
     ],
-    "groundtruth_answer": "Sóng dừng được hình thành khi một sóng tới và một sóng phản xạ, có cùng tần số và biên độ, truyền ngược chiều trong cùng một môi trường và giao thoa với nhau. Kết quả là không gian xuất hiện những điểm đứng yên gọi là nút sóng, xen kẽ với những điểm dao động cực đại gọi là bụng sóng. Phương trình sóng dừng được biểu diễn: 𝑢(𝑥, 𝑡) = 2𝐴cos(𝑘𝑥) cos(𝜔𝑡)  \n\nTrong đó, nếu cos(𝑘𝑥) = 0, biên độ dao động bằng 0, đó là các nút sóng. Nếu cos(𝑘𝑥) = ±1, \nbiên độ đạt cực đại, đó là các bụng sóng. \n\nCác vị trí nút được xác định bởi: 𝑥nút = (𝑘+\\𝑡𝑓𝑟𝑎𝑐12) 𝜆2  , trong khi vị trí bụng là: 𝑥bụng = 𝑘𝜆"
+    "groundtruth_answer": "Vận tốc truyền sóng v = λf = λ/T."
   },
   {
-    "question": "Sóng âm có dải tần số cảm nhận được bao nhiêu, công thức tính cường độ âm và mức cường độ âm là gì?",
+    "question": "Sóng ngang là gì?",
     "groundtruth_chunks": [
-      "n số có thể cảm nhận được nằm trong \nkhoảng từ 20 Hz đến 20 kHz. Sóng âm dưới 20 Hz gọi là hạ âm, trên 20 kHz gọi là siêu âm. \n\nĐặc trưng vật lí quan trọng của âm thanh là cường độ và mức cường độ âm. Cường độ âm \nđược định nghĩa là năng lượng âm truyền qua một đơn vị diện tích trong một đơn vị thời \ngian, công thức: \n\n𝐼= 𝑃\n\n𝑆 \n\n, với 𝑃 là công suất phát và 𝑆 là diện tích mặt cầu đồng tâm với nguồn. \n\n3",
-      "Để so sánh mức độ to nhỏ của âm, người ta dùng mức cường độ âm đo bằng decibel (dB): \n\n𝐿= 10 log10 ( 𝐼\n\n) \n\n𝐼0\n\n, trong đó 𝐼0 = 10−12 𝑊/𝑚2 là ngưỡng cường độ chuẩn mà tai người vừa mới cảm nhận \nđược. \n\nSóng âm có nhiều ứng dụng thực tiễn. Trong y học, sóng siêu âm được dùng để chẩn đoán \nhình ảnh. Trong quân sự và hàng hải, công nghệ sonar dựa vào nguyên lí truyền và phản xạ \nsóng âm để phát hiện và định vị vật thể dưới nước. Trong âm nhạc, các đặc trưng vật lí của \nsóng âm quyết định cao độ, âm lượng và âm sắc, tạo nên sự phong phú của giai điệu. \n\n4"
+      "Sóng ngang là sóng trong đó phương dao động của phần tử môi trường vuông góc với phương truyền sóng, điển hình là sóng trên mặt nước."
     ],
-    "groundtruth_answer": "Đối với con người, dải tần số có thể cảm nhận được nằm trong \nkhoảng từ 20 Hz đến 20 kHz. Sóng âm dưới 20 Hz gọi là hạ âm, trên 20 kHz gọi là siêu âm. Cường độ âm được định nghĩa là năng lượng âm truyền qua một đơn vị diện tích trong một đơn vị thời gian, công thức: 𝐼= 𝑃𝑆 , với 𝑃 là công suất phát và 𝑆 là diện tích mặt cầu đồng tâm với nguồn. Để so sánh mức độ to nhỏ của âm, người ta dùng mức cường độ âm đo bằng decibel (dB): 𝐿= 10 log10 ( 𝐼) 𝐼0, trong đó 𝐼0 = 10−12 𝑊/𝑚2 là ngưỡng cường độ chuẩn mà tai người vừa mới cảm nhận được"
+    "groundtruth_answer": "Sóng ngang là sóng có phương dao động vuông góc với phương truyền sóng."
+  },
+  {
+    "question": "Điều kiện để có giao thoa rõ rệt giữa hai sóng là gì?",
+    "groundtruth_chunks": [
+      "Giao thoa đặc biệt rõ ràng khi các sóng có cùng tần số và biên độ."
+    ],
+    "groundtruth_answer": "Giao thoa rõ rệt khi các sóng có cùng tần số và biên độ."
+  },
+  {
+    "question": "Trong sóng dừng, điểm nào dao động với biên độ bằng 0?",
+    "groundtruth_chunks": [
+      "Trong đó, nếu cos(kx) = 0, biên độ dao động bằng 0, đó là các nút sóng."
+    ],
+    "groundtruth_answer": "Trong sóng dừng, nút sóng có biên độ bằng 0."
+  },
+  {
+    "question": "Tai người nghe được âm thanh trong dải tần số nào?",
+    "groundtruth_chunks": [
+      "Đối với con người, dải tần số có thể cảm nhận được nằm trong khoảng từ 20 Hz đến 20 kHz."
+    ],
+    "groundtruth_answer": "Tai người nghe được âm thanh từ 20 Hz đến 20 kHz."
+  },
+  {
+    "question": "Cường độ âm được tính bằng công thức nào?",
+    "groundtruth_chunks": [
+      "Cường độ âm được định nghĩa là năng lượng âm truyền qua một đơn vị diện tích trong một đơn vị thời gian, công thức: I = P/S."
+    ],
+    "groundtruth_answer": "Cường độ âm I = P/S."
+  },
+  {
+    "question": "Mức cường độ âm được đo bằng đơn vị nào?",
+    "groundtruth_chunks": [
+      "Để so sánh mức độ to nhỏ của âm, người ta dùng mức cường độ âm đo bằng decibel (dB)."
+    ],
+    "groundtruth_answer": "Mức cường độ âm đo bằng decibel (dB)."
   }
 ]
