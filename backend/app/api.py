@@ -3,8 +3,10 @@ import json
 import os
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
-from app.rag.pipeline import evaluate_RAG, process_question, ensure_index_for_pdf, get_formulas, suggest_related_papers_with_difference
+from app.rag.pipeline import  process_question, ensure_index_for_pdf, get_formulas
 from app.pdf.extract import parse_pdf
+from app.rag.evaluate import evaluate_RAG
+from app.rag.suggest_papers import suggest_related_papers_with_difference
 import requests
 from pathlib import Path
 
@@ -179,11 +181,16 @@ def rag_evaluation(pdf_filename: str):
     avg_answer_relevancy = sum(answer_relevancy) / len(answer_relevancy)
 
     result = {
-        "faithfulness": avg_faithfulness,
-        "context_recall": avg_recall,
-        "context_precision": avg_precision,
-        "answer_correctness": avg_answer_correctness,
-        "answer_relevancy": avg_answer_relevancy
+        "faithfulness": faithfulness,
+        "context_recall": context_recall,
+        "context_precision": context_precision,
+        "answer_correctness": answer_correctness,
+        "answer_relevancy": answer_relevancy,
+        "avg_faithfulness": avg_faithfulness,
+        "avg_context_recall": avg_recall,
+        "avg_context_precision": avg_precision,
+        "avg_answer_correctness": avg_answer_correctness,
+        "avg_answer_relevancy": avg_answer_relevancy
     }
 
     # Lưu kết quả vào file
