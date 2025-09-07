@@ -1,6 +1,7 @@
 import json
 from app.evaluator.evaluate import evaluate_rag_with_gemini
-from app.rag.pipeline import generate_with_ollama, process_question
+from app.rag.pipeline import process_question
+from app.rag.generation import generate_with_ollama
 
 
 def evaluate_RAG (question_groundtruth:list, pdf_path:str):

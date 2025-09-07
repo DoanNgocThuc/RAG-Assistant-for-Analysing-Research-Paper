@@ -1,7 +1,8 @@
 import os
 import pickle
 import numpy as np
-from app.rag.pipeline import ensure_index_for_pdf, generate_with_ollama
+from app.rag.indexing import ensure_index_for_pdf
+from app.rag.generation import generate_with_ollama
 import faiss
 
 EMBEDDINGS_DIR = os.path.join(os.getcwd(), "embeddings")

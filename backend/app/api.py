@@ -3,12 +3,13 @@ import json
 import os
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse, FileResponse
-from app.rag.pipeline import  process_question, ensure_index_for_pdf, get_formulas
 from app.pdf.extract import parse_pdf
 from app.rag.evaluate import evaluate_RAG
 from app.rag.suggest_papers import suggest_related_papers_with_difference
 import requests
 from pathlib import Path
+from app.rag.pipeline import process_question, get_formulas, process_question
+from app.rag.indexing import ensure_index_for_pdf
 
 router = APIRouter()
 
