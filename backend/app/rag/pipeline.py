@@ -5,10 +5,21 @@ from app.rag.indexing import retrieve_top_k
 from app.rag.prompts import _build_system_prompt, explain_context
 from app.rag.generation import generate_with_ollama
 
-def process_question(question: str, mode: str, pdf_path: str, k: int = 3):
+def process_question(question: str, mode: str, pdf_path: str, k: int = 3, isFormula: bool = False):
     contexts = retrieve_top_k(question, pdf_path, k=k)
     system_prompt = _build_system_prompt(mode)
     context_blocks, sources = [], []
+
+    if isFormula:
+        system_prompt = (
+            "You are a helpful assistant specialized in explaining mathematical formulas. "
+            "Clearly explain the meaning of the formula, each variable, and its role in the formula. "
+            "If possible, provide a short example usage."
+        )
+        user_prompt = f"Explain the following formula in detail:\n\n{question}"
+        answer_text = generate_with_ollama(system_prompt, user_prompt, max_tokens=800)
+        return answer_text, []  # no sources needed
+
 
     for c in contexts:
         page, snippet = c["metadata"]["page"], c["text"][:1000].strip()
@@ -40,3 +51,5 @@ def get_formulas(pdf_path: str):
             if f and isinstance(f, str):
                 formulas.append({"page": p["page"], "formula": f.strip()})
     return formulas
+
+

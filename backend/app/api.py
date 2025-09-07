@@ -71,12 +71,13 @@ async def ask_question(
     pdf_filename: str,
     mode: str,
     k: int = 3,
+    isFormula: bool = False,
 ):
     pdf_path = os.path.join(UPLOAD_DIR, pdf_filename)
     if not os.path.exists(pdf_path):
         raise HTTPException(status_code=404, detail="PDF not found on server")
     print("Trying to generate asked question...")
-    answer, sources = process_question(question, mode, pdf_path, k=k)
+    answer, sources = process_question(question, mode, pdf_path, k=k, isFormula=isFormula)
     return JSONResponse({"answer": answer, "sources": sources})
 
 @router.get("/context")

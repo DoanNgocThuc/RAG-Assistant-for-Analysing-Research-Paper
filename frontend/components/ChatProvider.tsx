@@ -348,6 +348,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mode: "normal",
         pdf_filename: activeChat.fileName,
         k: "5",
+        isFormula: "true",
       });
       const response = await fetch(`${API_BASE_URL}/ask?${params}`);
       if (!response.ok) throw new Error("Failed to generate explanation");
