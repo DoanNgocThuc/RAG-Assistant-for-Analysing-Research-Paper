@@ -27,7 +27,18 @@ Before running the project, ensure you have the following installed:
    - If you see a message indicating that the socket is already in use, the server is ready, and you can proceed.
 
 3. **Install Python Dependencies**:
+   Navigate to the `backend` folder, create variable environment for python
+   ```bash
+   python -m venv venv
+   ```
+
    Navigate to the `backend` folder, which contains a `requirements.txt` file listing all required Python libraries. Install them using the following command:
+   ```bash
+   venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+3.5. **Install Python Dependencies**:
+   You can also use pythone:
    ```bash
    pip install -r requirements.txt
    ```
