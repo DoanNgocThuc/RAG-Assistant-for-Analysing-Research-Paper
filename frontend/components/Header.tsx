@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, History, Plus, Upload } from "lucide-react";
+import { Trash2, History, Plus, Upload, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useChat } from "./ChatProvider";
 
@@ -149,7 +149,9 @@ export const Header: React.FC = () => {
                                 </h4>
                                 <p className="text-sm text-muted-foreground mb-1">
                                   {session.messages.length} message
-                                  {session.messages.length !== 1 ? "s" : ""} •{" "}
+                                  {session.messages.length !== 1
+                                    ? "s"
+                                    : ""} •{" "}
                                   {(session.fileSize / 1024 / 1024).toFixed(1)}{" "}
                                   MB
                                 </p>
@@ -187,6 +189,11 @@ export const Header: React.FC = () => {
             >
               <span className="sr-only">Toggle theme</span>
               {/* icons omitted for brevity in header - you can add them similarly */}
+              {theme === "light" ? (
+                <Moon className="h-5 w-5" />
+              ) : (
+                <Sun className="h-5 w-5" />
+              )}
             </Button>
           </div>
         </div>
