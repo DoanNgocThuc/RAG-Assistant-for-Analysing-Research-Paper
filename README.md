@@ -37,13 +37,8 @@ Before running the project, ensure you have the following installed:
    venv\Scripts\activate
    pip install -r requirements.txt
    ```
-3.5. **Install Python Dependencies**:
-   You can also use pythone:
-   ```bash
-   pip install -r requirements.txt
-   ```
 
-4. **Activate Virtual Environment**:
+4. **Activate Virtual Environment** if you haven't:
    In the `backend` directory, activate the virtual environment:
    ```bash
    venv\Scripts\activate
